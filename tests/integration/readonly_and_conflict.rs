@@ -68,7 +68,7 @@ fn save_failure_from_quit_popup_keeps_editor_open_and_shows_error() {
 
     #[cfg(unix)]
     fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
-    let result = session.handle_command(EditorCommand::Confirm);
+    let result = session.handle_command(EditorCommand::Enter);
     #[cfg(unix)]
     fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
 
@@ -102,7 +102,7 @@ fn external_change_prompts_for_reload_overwrite_or_cancel() {
 
     session.handle_command(EditorCommand::MoveRight).unwrap();
     session.handle_command(EditorCommand::MoveRight).unwrap();
-    session.handle_command(EditorCommand::Confirm).unwrap();
+    session.handle_command(EditorCommand::Enter).unwrap();
 
     assert_eq!(fs::read_to_string(&path).unwrap(), "xbase\n");
 }

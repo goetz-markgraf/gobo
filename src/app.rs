@@ -142,7 +142,6 @@ impl EditingSession {
             EditorCommand::Quit => self.request_quit(),
             EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
-            EditorCommand::Confirm
             | EditorCommand::Cancel
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
@@ -165,7 +164,7 @@ impl EditingSession {
                 search.query.pop();
                 self.status = Some(StatusMessage::info("Search query updated"));
             }
-            EditorCommand::Confirm => {
+            EditorCommand::Enter => {
                 if search.query.is_empty() {
                     self.status = Some(StatusMessage::info("Search cancelled"));
                     self.mode = SessionMode::Editing;
@@ -199,7 +198,6 @@ impl EditingSession {
             | EditorCommand::Search
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
-             |EditorCommand::Enter
             | EditorCommand::Resize(_) => {}
         }
 
@@ -224,7 +222,7 @@ impl EditingSession {
                         focus: next_unsaved_choice(&focus),
                     });
                 }
-                EditorCommand::Confirm | EditorCommand::Enter => match focus {
+                EditorCommand::Enter => match focus {
                     UnsavedChoice::Save => {
                         if matches!(self.save_document(Some(action.clone()))?, SaveDisposition::Saved) {
                             self.mode = SessionMode::Exiting;
@@ -255,7 +253,7 @@ impl EditingSession {
                         resume_action,
                     });
                 }
-                EditorCommand::Confirm | EditorCommand::Enter => match focus {
+                EditorCommand::Enter => match focus {
                     ConflictChoice::Reload => {
                         self.document.reload_from_disk()?;
                         self.cursor.char_index = 0;

@@ -13,7 +13,6 @@ pub enum EditorCommand {
     Save,
     Quit,
     Search,
-    Confirm,
     Cancel,
     Enter,
     NextChoice,

@@ -26,14 +26,14 @@ fn search_is_case_insensitive_and_reports_no_match() {
     for ch in "third".chars() {
         session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
     }
-    session.handle_command(EditorCommand::Confirm).unwrap();
+    session.handle_command(EditorCommand::Enter).unwrap();
     assert!(session.status.as_ref().unwrap().text.contains("Match found"));
 
     session.handle_command(EditorCommand::Search).unwrap();
     for ch in "missing".chars() {
         session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
     }
-    session.handle_command(EditorCommand::Confirm).unwrap();
+    session.handle_command(EditorCommand::Enter).unwrap();
     assert!(session.status.as_ref().unwrap().text.contains("No match"));
 }
 
