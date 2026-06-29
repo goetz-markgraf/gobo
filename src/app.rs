@@ -188,13 +188,13 @@ impl EditingSession {
                 self.status = Some(StatusMessage::info("Search cancelled"));
                 self.mode = SessionMode::Editing;
             }
+            EditorCommand::Quit => self.request_quit(),
             EditorCommand::MoveLeft
             | EditorCommand::MoveRight
             | EditorCommand::MoveUp
             | EditorCommand::MoveDown
             | EditorCommand::Delete
             | EditorCommand::Save
-            | EditorCommand::Quit
             | EditorCommand::Search
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
@@ -356,18 +356,20 @@ impl EditingSession {
         &mut self,
         resume_action: Option<PromptAction>,
     ) -> Result<SaveDisposition, DocumentError> {
-        match self.document.save()? {
-            SaveResult::Saved => {
+        match self.document.save() {
+            Ok(SaveResult::Saved) => {
                 self.pending_prompt = None;
                 self.mode = SessionMode::Editing;
                 self.status = Some(StatusMessage::success("Saved"));
                 Ok(SaveDisposition::Saved)
             }
-            SaveResult::BlockedReadOnly => {
+            Ok(SaveResult::BlockedReadOnly) => {
+                self.pending_prompt = None;
+                self.mode = SessionMode::Editing;
                 self.status = Some(StatusMessage::error("Read-only: save blocked"));
                 Ok(SaveDisposition::ReadOnlyBlocked)
             }
-            SaveResult::ConflictDetected => {
+            Ok(SaveResult::ConflictDetected) => {
                 self.pending_prompt = Some(PromptState::SaveConflict {
                     focus: ConflictChoice::Cancel,
                     resume_action,
@@ -375,6 +377,16 @@ impl EditingSession {
                 self.mode = SessionMode::SaveConflictPrompt;
                 self.status = Some(StatusMessage::warning("File changed on disk"));
                 Ok(SaveDisposition::ConflictPrompted)
+            }
+            Err(error) => {
+                self.pending_prompt = None;
+                self.mode = SessionMode::Editing;
+                self.status = Some(StatusMessage::error(format!("Save failed: {error}")));
+                if resume_action.is_some() {
+                    Ok(SaveDisposition::ReadOnlyBlocked)
+                } else {
+                    Err(error)
+                }
             }
         }
     }
@@ -393,7 +405,7 @@ impl EditingSession {
     }
 
     fn prompt_lines(&self) -> u16 {
-        if self.pending_prompt.is_some() || self.mode == SessionMode::SearchInput {
+        if self.mode == SessionMode::SearchInput {
             2
         } else {
             1

@@ -43,11 +43,44 @@ impl ViewportState {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PromptVariant {
+    Full,
+    Compact,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PopupRect {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PromptActionLabel {
+    pub label: String,
+    pub focused: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PopupView {
+    // Popup presentation stays in the render layer so prompt behavior remains in app state.
+    pub variant: PromptVariant,
+    pub title: String,
+    pub message: Option<String>,
+    pub actions: Vec<PromptActionLabel>,
+    pub help_text: String,
+    pub rect: PopupRect,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderView {
     pub body_lines: Vec<String>,
     pub status_line: String,
-    pub prompt_line: Option<String>,
+    pub bottom_line: Option<String>,
+    // Overlay prompts render independently from the bottom-line status/search surfaces.
+    pub popup: Option<PopupView>,
     pub cursor_x: u16,
     pub cursor_y: u16,
 }
@@ -64,11 +97,12 @@ pub fn render_view(session: &EditingSession) -> RenderView {
     }
 
     let status_line = status::format_status_line(session);
-    let prompt_line = session
-        .pending_prompt
-        .as_ref()
-        .map(status::prompt_line)
-        .or_else(|| status::search_prompt(session));
+    let popup = status::popup_view(session, session.terminal_size);
+    let bottom_line = if popup.is_some() {
+        None
+    } else {
+        status::search_prompt(session)
+    };
 
     let cursor_line = buffer::line_of_char(&session.document.text, session.cursor.char_index);
     let cursor_column = cursor::visual_column(&session.document.text, session.cursor.char_index);
@@ -78,7 +112,8 @@ pub fn render_view(session: &EditingSession) -> RenderView {
     RenderView {
         body_lines,
         status_line,
-        prompt_line,
+        bottom_line,
+        popup,
         cursor_x,
         cursor_y,
     }

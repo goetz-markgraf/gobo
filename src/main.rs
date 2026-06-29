@@ -7,8 +7,8 @@ use gobo::editor::input::{map_key_event, EditorCommand};
 use gobo::editor::render::TerminalSize;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Terminal;
 use std::io::{self, stdout};
 use std::process::ExitCode;
@@ -83,7 +83,7 @@ fn draw(
     let view = session.render_view();
     terminal
         .draw(|frame| {
-            let prompt_height = if view.prompt_line.is_some() { 1 } else { 0 };
+            let prompt_height = if view.bottom_line.is_some() { 1 } else { 0 };
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -101,11 +101,50 @@ fn draw(
                 .block(Block::default().borders(Borders::TOP));
             frame.render_widget(status, chunks[1]);
 
-            if let Some(prompt_line) = view.prompt_line {
+            if let Some(prompt_line) = view.bottom_line {
                 let prompt = Paragraph::new(prompt_line)
                     .style(Style::default().fg(Color::Yellow))
                     .block(Block::default().borders(Borders::TOP));
                 frame.render_widget(prompt, chunks[2]);
+            }
+
+            if let Some(popup) = &view.popup {
+                let rect = ratatui::layout::Rect::new(
+                    popup.rect.x,
+                    popup.rect.y,
+                    popup.rect.width,
+                    popup.rect.height,
+                );
+                frame.render_widget(Clear, rect);
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .style(Style::default().fg(Color::Yellow).bg(Color::Black));
+                let inner = block.inner(rect);
+                frame.render_widget(block, rect);
+
+                let mut lines = vec![popup.title.clone()];
+                if let Some(message) = &popup.message {
+                    lines.push(String::new());
+                    lines.push(message.clone());
+                }
+                lines.push(String::new());
+                lines.push(
+                    popup
+                        .actions
+                        .iter()
+                        .map(|action| action.label.as_str())
+                        .collect::<Vec<_>>()
+                        .join("   "),
+                );
+                lines.push(popup.help_text.clone());
+
+                let popup_paragraph = Paragraph::new(lines.join("\n")).style(
+                    Style::default()
+                        .fg(Color::White)
+                        .bg(Color::Black)
+                        .add_modifier(Modifier::BOLD),
+                );
+                frame.render_widget(popup_paragraph, inner);
             }
 
             frame.set_cursor_position((view.cursor_x, view.cursor_y));
