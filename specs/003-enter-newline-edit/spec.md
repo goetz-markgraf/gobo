@@ -8,6 +8,13 @@
 
 **Input**: User description: "Enter at the end of a line should create a new line. Enter before the end of the line should split the line. Like in any normal text editor"
 
+## Clarifications
+
+### Session 2026-06-29
+
+- **Q**: Which character encoding to use for document content? — **A**: UTF-8. All text is encoded as UTF-8; cursor positions are determined by Unicode codepoint offset (not byte offset).
+- **Q**: What happens to trailing whitespace when splitting a mid-line? — **A**: Trailing whitespace is preserved exactly as-is on the top line. No trimming or collapsing occurs.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Press Enter at End of Line to Start New Line (Priority: P1)
@@ -66,4 +73,4 @@ When the user is editing a document and presses the Enter key with the cursor po
 - The cursor position can be determined precisely by character offset or column number.
 - The Enter key maps to a newline/newline-break event in the terminal input stream.
 - No special modifiers (Shift+Enter, Ctrl+Enter) are requested for this feature; only plain Enter is handled.
-- Lines are stored with an internal line break representation that separates them for display and editing purposes but does not require writing external file formats at this stage.
+- Lines are stored as UTF-8 encoded text. Trailing whitespace on lines after splitting is preserved exactly as-is (no trimming). Lines are stored with an internal line break representation that separates them for display and editing purposes but does not require writing external file formats at this stage.
