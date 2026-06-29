@@ -16,13 +16,13 @@
 - Q: What keybinding was originally used to trigger "find next"? The spec mentions Ctrl-G — is this a new binding or replacement? → A: Use a dedicated `FindNext` command bound to Ctrl+G, separate from the initial search. Pressing Enter in the current search still confirms and jumps to the found match.
 - Q: For the popup display style, should it look similar to existing popups (e.g., unsaved-changes confirmation) or be a simpler bottom-line prompt? → A: Use an inline bottom-line prompt on the last screen line — simpler and consistent with how status lines already render at the edge of the editor view.
 - Q: What should happen when the user presses Enter in search mode with an **empty query**? → A: Exit search mode silently without any message or cursor movement.
-- Q: After confirming a search and returning to editing mode, should any match highlights persist? → A: No persistent highlights at all. Match indicators appear only during active search navigation (Enter, Ctrl+G) and disappear immediately on returning to edit mode.
+- Q: After confirming a search and returning to editing mode, should any text be visually altered for the user? → A: Nothing on the document text is visually altered. The only changes visible to the user are the cursor position updating and the bottom-line status message.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Search for text in document (Priority: P1)
 
-A user presses Ctrl+F to enter search mode, types a query on the visible last line of the screen. **There are no highlights during typing or normal editing.** Visual match indicators appear **only** during search navigation (after Enter/confirm or when pressing Ctrl+G), and disappear immediately after returning to editing mode. The user can confirm the search (Enter), cancel it (Esc), or continue typing the query to update results live.
+A user presses Ctrl+F to enter search mode, types a query on the visible last line of the screen. There are no visual indicators on the document text. The user can confirm the search (Enter), cancel it (Esc), or continue typing the query to update results live.
 
 **Why this priority**: Without a visible search interface, the search feature is unusable. This is the core interaction that enables all other search behaviors.
 
@@ -71,13 +71,13 @@ The search respects the document text casing: it finds matches insensitive to ca
 
 ## Functional Requirements
 
-- **FR-001**: When the user presses Ctrl+F, the editor MUST switch to search input mode and display `Search: ` followed by the current query text on the last screen line with clear visible text (not transparent or blended into the background). The cursor is placed at the **start** of the first match; no multi-char selection highlight is displayed. No highlights persist after returning to editing mode.
+- **FR-001**: When the user presses Ctrl+F, the editor MUST switch to search input mode and display `Search: ` followed by the current query text on the last screen line with clear visible text (not transparent or blended into the background). The cursor is placed at the **start** of the first match; no text on the document is visually altered for the user beyond cursor positioning.
 - **FR-002**: During search input mode, each typed character MUST be appended to the query string and displayed immediately after `Search: ` on the bottom line
 - **FR-003**: Pressing Enter while in search input mode MUST find the first match (searching from cursor position forward, wrapping to the beginning), place the cursor at the **start** of that match, display the match position briefly, then return to editing mode
 - **FR-004**: Pressing Esc while in search input mode MUST cancel the search, discard any partial query, and return to editing mode without moving the cursor
 - **FR-004a**: Pressing Enter while in search input mode with an **empty query** MUST exit search mode silently without moving the cursor or displaying any message
 - **FR-005**: The editor MUST support a new Ctrl+G keybinding that finds the next occurrence of the current search query from the cursor position forward
-- **FR-006**: Pressing Ctrl+G MUST wrap around from end-of-document to the first match when no further matches remain after the cursor. Any visible match indicators appear **only** during search navigation and do NOT persist after returning to editing mode.
+- **FR-006**: Pressing Ctrl+G MUST wrap around from end-of-document to the first match when no further matches remain after the cursor.
 - **FR-007**: If a search query has zero matches in the document, pressing Enter or Ctrl+G MUST display "no matches" and not move the cursor
 - **FR-008**: The search input line MUST use a distinct foreground color (e.g., yellow) that contrasts clearly against the terminal background so the prompt text and typed query are always readable
 - **FR-009**: The status area above the search prompt MUST remain at 1 line; the search prompt occupies 1 additional line only when in SearchInput mode (total of 2 bottom areas during search)
