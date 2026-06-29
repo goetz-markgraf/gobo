@@ -4,7 +4,7 @@
 
 ## Summary
 
-Fix the invisible search prompt displayed via `Search: ` on the bottom line and add a `FindNext` command bound to Ctrl+G for navigating to subsequent matches. The search currently renders as plain text through `status::search_prompt()` but is never shown because popups always occupy the bottom area. The fix involves wiring the search prompt into the render loop with proper yellow foreground styling, handling the popup-vs-search prompt mutual exclusion in `popup_view()`, adding Ctrl+G via a new `EditorCommand::NextChoice` variant (renamed for clarity but reusing the existing enum variant already wired), and extending `handle_search_command()` to support the next-match navigation from the confirmed cursor position with wrap-around behavior. The implementation stays within the existing crate — no new dependencies, no state machine changes beyond adding the command variant.
+Fix the invisible search prompt displayed via `Search: ` on the bottom line and add a `FindNext` command bound to Ctrl+G for navigating to subsequent matches. The search currently renders as plain text through `status::search_prompt()` but is never shown because popups always occupy the bottom area. The fix involves wiring the search prompt into the render loop with proper yellow foreground styling, handling the popup-vs-search prompt mutual exclusion in `popup_view()`, adding Ctrl+G as new `EditorCommand::FindNext` variant, distinct from Tab-key-driven `NextChoice`, and extending `handle_search_command()` to support the next-match navigation from the confirmed cursor position with wrap-around behavior. The implementation stays within the existing crate — no new dependencies, no state machine changes beyond adding the command variant.
 
 ## Technical Context
 
@@ -57,7 +57,7 @@ specs/004-visible-search-popup/
 
 ```text
 src/
-├── app.rs                # EditingSession + handle_search_command() + new NextChoice branch
+├── app.rs                # EditingSession + handle_search_command() + new FindNext branch
 ├── main.rs               # draw() loop: bottom-line expansion for SearchInput mode; styled yellow search prompt
 ├── cli.rs                # No changes needed
 ├── document.rs           # No changes needed
@@ -66,7 +66,7 @@ src/
     ├── mod.rs            # re-exports unchanged
     ├── buffer.rs         # No changes needed
     ├── cursor.rs         # No changes needed
-    ├── input.rs          # New EditorCommand::NextChoice variant (reuses existing enum arm name or new variant)
+    ├── input.rs          # New EditorCommand::FindNext variant (distinct from NextChoice; no reuse needed)
     ├── search.rs         # find_next() wrap-around from given position, handle "no matches" state
     ├── status.rs         # popup_view() mutual exclusion with search_prompt(); styled output
     └── render.rs         # No changes needed
@@ -160,13 +160,13 @@ pub fn search_prompt(session: &EditingSession, size: TerminalSize) -> Option<Str
 
 ### 3. Search Command Addition (`editor/input.rs`)
 
-Add a new command variant for the Ctrl+G keybinding. The existing `EditorCommand` already has `NextChoice` but it appears to be used for Tab/BackTab navigation in prompts. We need to add **another** variant or repurpose:
+Add a new `FindNext` variant to `EditorCommand` (Ctrl+G — next match search). The existing `NextChoice` is used exclusively for popup/quickfix Tab navigation; this is a distinct command on a different key with no collision risk.
 
 ```rust
 pub enum EditorCommand {
     // ... existing variants ...
-    NextChoice,       // Already exists: tab navigation for prompts
-    FindNext,         // NEW: Ctrl+G — next match search
+    NextChoice,           // Existing: popup/quickfix Tab navigation (unchanged)
+    FindNext,             // NEW: Ctrl+G - next match search from cursor position
 }
 ```
 
@@ -232,6 +232,9 @@ This already has yellow foreground. The issue is likely that the `Block` borders
 
 **The real fix**: ensure that when the search prompt renders, it explicitly has a contrasting style. The current code already uses yellow foreground; adding a background would help but adds complexity. Since the spec says "distinct foreground color... contrasts clearly against terminal background", yellow is appropriate.
 
+
+**Note on FR-008 (visible yellow foreground):** Automated color contrast testing is not feasible for this editor context. Verification will be manual during implementation review; the code explicitly applies `Color::Yellow` making human verification reliable.
+**Note on FR-010 (UTF-8 / multi-byte graphemes):** Unit test coverage in T002 tests CJK/emoji grapheme matching and invalid UTF-8 resilience. No separate integration test needed since find_next() logic is tested at unit level.
 Let me check if there's something in `render_view()` that prevents this path:
 ```rust
 let bottom_line = if popup.is_some() {

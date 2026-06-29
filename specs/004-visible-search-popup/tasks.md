@@ -29,6 +29,8 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
   - Single-character document with matching query at position 0
   - Query longer than document never matches
   - Wrap-around when cursor is past the last match
+    - Multi-byte grapheme query (e.g. CJK, emoji) finds exact character matches
+    - Invalid UTF-8 sequences in query do not crash find_next()
 - [ ] T003 [P] Verify existing unit tests (`cargo test --lib`) still pass after adding search edge-case tests
 
 **Checkpoint**: Foundation ready — user story implementation can now proceed.
@@ -50,7 +52,7 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 - [ ] T006 [US1] Fix search prompt rendering in `src/editor/render.rs` — ensure `render_view()` correctly wires `status::search_prompt()` into `bottom_line: Option<String>` when popup is None and mode is SearchInput; verify `prompt_lines()` returns 2 for SearchInput
 - [ ] T007 [US1] Fix yellow foreground styling in `src/main.rs` — replace ambiguous `Style::default().fg(Color::Yellow)` with explicit styled block on the search prompt paragraph to ensure visible contrast against terminal background
-- [ ] T008 [US1] Verify status line styling in `src/editor/status.rs` — update `search_prompt()` return type signature if needed (no parameters required as per contract, query comes from session); confirm popup_view mutual exclusion logic handles SearchInput mode correctly
+- [ ] T008 [US1] Verify status line mechanism in `src/editor/status.rs` — confirm popup_view returns None for SearchInput; update search_prompt() return type if needed per plan's analysis (visual fix may reside in main.rs or render.rs)
 
 **Checkpoint**: User Story 1 is fully functional — pressing Ctrl+F shows visible "Search: " prompt on the last screen line.
 
@@ -90,8 +92,8 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] No code changes required — verify `normalize()` in `src/editor/search.rs` lowercases both query and haystack, confirming FR-008 case-insensitive behavior works per default `CaseMode::Insensitive`
-
+- [ ] T016 [US3] No code changes required — verify `normalize()` in `src/editor/search.rs` lowercases both query and haystack, confirming case-insensitive matching works per default `CaseMode::Insensitive`
+- [ ] T016a [US3] Integration check: after confirming a search for uppercase "HELLO" that matches lowercase "hello", the prompt still displays original casing "Search: HELLO" on screen
 **Checkpoint**: All user stories are independently functional.
 
 ---
@@ -102,7 +104,7 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 - [ ] T017 Verify all unit tests pass: `cargo test --lib`
 - [ ] T018 Run integration tests: `cargo test --test '*'`
-- [ ] T019 [P] Add edge-case integration test to `tests/integration/search_and_resize.rs`: search with empty query + Enter exits silently without status message or cursor movement (FR-004a)
+- [ ] T019 [P] Add edge-case integration test to `tests/integration/search_and_resize.rs`: empty query + Enter exits silently (FR-004a); empty query + Ctrl+G shows "No match" without moving cursor (FR-007)
 - [ ] T020 Verify code readability against Constitution Principle I: check `src/app.rs`, `src/editor/input.rs`, `src/editor/search.rs`, `src/editor/status.rs`, `src/main.rs` for clear naming and simple control flow
 - [ ] T021 Maintainability check against Constitution Principle II: no new types/modules needed, existing boundaries preserved (app → state, search → text ops, status → output, main → rendering)
 - [ ] T022 Security/governance check against Constitution Principle III: search input is pure in-memory, no file I/O during search, empty query exits cleanly without panic

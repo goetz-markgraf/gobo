@@ -73,7 +73,7 @@ The search respects the document text casing: it finds matches insensitive to ca
 
 - **FR-001**: When the user presses Ctrl+F, the editor MUST switch to search input mode and display `Search: ` followed by the current query text on the last screen line with clear visible text (not transparent or blended into the background). The cursor is placed at the **start** of the first match; no text on the document is visually altered for the user beyond cursor positioning.
 - **FR-002**: During search input mode, each typed character MUST be appended to the query string and displayed immediately after `Search: ` on the bottom line
-- **FR-003**: Pressing Enter while in search input mode MUST find the first match (searching from cursor position forward, wrapping to the beginning), place the cursor at the **start** of that match, display the match position briefly, then return to editing mode
+- **FR-003**: Pressing Enter while in search input mode MUST find the first match (searching from cursor position forward, wrapping to the beginning), place the cursor at the **start** of that match, display the match position briefly (e.g., "Match at (10..15)" for ~2 seconds or until any key is pressed), then return to editing mode
 - **FR-004**: Pressing Esc while in search input mode MUST cancel the search, discard any partial query, and return to editing mode without moving the cursor
 - **FR-004a**: Pressing Enter while in search input mode with an **empty query** MUST exit search mode silently without moving the cursor or displaying any message
 - **FR-005**: The editor MUST support a new Ctrl+G keybinding that finds the next occurrence of the current search query from the cursor position forward
