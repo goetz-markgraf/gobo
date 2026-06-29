@@ -59,6 +59,34 @@ fn clean_document_quits_immediately_without_popup() {
 }
 
 #[test]
+fn enter_key_selects_focused_save_action_in_unsaved_prompt() {
+    // Regression test: pressing Enter in the quit confirmation popup
+    // must select the currently focused action (Save, by default).
+    // Previously, EditorCommand::Enter fell through to `_ => {}` in
+    // handle_prompt_command and did nothing.
+    let (_dir, _path, mut session) = dirty_session("enter-select.txt");
+
+    // Enter quit confirmation popup
+    session.handle_command(EditorCommand::Quit).unwrap();
+    assert_eq!(session.mode, SessionMode::ConfirmQuit);
+    assert!(matches!(
+        session.pending_prompt,
+        Some(PromptState::UnsavedChanges {
+            focus: UnsavedChoice::Save,
+            ..
+        })
+    ));
+
+    // Press Enter expecting it to confirm the focused "Save" action.
+    // Before the fix this does nothing (Enter is not handled in handle_prompt_command),
+    // so mode stays ConfirmQuit instead of entering Exiting state.
+    session.handle_command(EditorCommand::Enter).unwrap();
+
+    // After committing Save, the quit flow should complete and exit.
+    assert!(session.is_exiting(), "Enter key should select the focused Save action and complete the quit");
+}
+
+#[test]
 fn long_path_status_text_does_not_replace_quit_popup() {
     let dir = tempdir().unwrap();
     let long_dir = dir

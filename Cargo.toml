@@ -31,6 +31,10 @@ name = "integration_search_and_resize"
 path = "tests/integration/search_and_resize.rs"
 
 [[test]]
+name = "integration_enter_newline"
+path = "tests/integration/enter_newline.rs"
+
+[[test]]
 name = "unit_buffer"
 path = "tests/unit/buffer.rs"
 

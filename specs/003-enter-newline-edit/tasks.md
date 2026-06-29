@@ -23,8 +23,8 @@ description: "Task list for Enter Key Newline Editing feature"
 
 **Purpose**: Verify the project builds and environment is ready
 
-- [ ] T001 Verify `cargo build --release` succeeds from repository root
-- [ ] T002 Ensure `tests/integration/` directory exists with existing test files
+- [X] T001 Verify `cargo build --release` succeeds from repository root
+- [X] T002 Ensure `tests/integration/` directory exists with existing test files
 
 ---
 
@@ -32,8 +32,8 @@ description: "Task list for Enter Key Newline Editing feature"
 
 **Purpose**: Prepare the codebase for the Enter command addition — no user story behavior changes yet
 
-- [ ] T003 [P] Document module boundaries and coding conventions for `src/editor/input.rs` and `src/app.rs` in relevant file comments
-- [ ] T004 Identify safeguard requirements: confirm `DocumentBuffer::is_read_only()` guard already blocks edits throughout the edit pipeline (verify in `handle_editing_command`, `insert_text`, `backspace`, `delete` in src/app.rs)
+- [X] T003 [P] Document module boundaries and coding conventions for `src/editor/input.rs` and `src/app.rs` in relevant file comments
+- [X] T004 Identify safeguard requirements: confirm `DocumentBuffer::is_read_only()` guard already blocks edits throughout the edit pipeline (verify in `handle_editing_command`, `insert_text`, `backspace`, `delete` in src/app.rs)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -51,16 +51,16 @@ description: "Task list for Enter Key Newline Editing feature"
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T005 [P] [US1] Integration test for Enter-at-end-of-line creating a new blank line in `tests/integration/enter_newline.rs`
-- [ ] T006 [P] [US2] Integration test for Enter-mid-line splitting the line correctly in `tests/integration/enter_newline.rs`
-- [ ] T007 [P] Edge-case integration tests (empty document, single empty line, read-only protection) in `tests/integration/enter_newline.rs`
+- [X] T005 [P] [US1] Integration test for Enter-at-end-of-line creating a new blank line in `tests/integration/enter_newline.rs`
+- [X] T006 [P] [US2] Integration test for Enter-mid-line splitting the line correctly in `tests/integration/enter_newline.rs`
+- [X] T007 [P] Edge-case integration tests (empty document, single empty line, read-only protection) in `tests/integration/enter_newline.rs`
 
 ### Implementation for User Stories 1 + 2
 
-- [ ] T008 Add `Enter` variant to `EditorCommand` enum in `src/editor/input.rs`
-- [ ] T009 Update `map_key_event` in `src/editor/input.rs`: change `(_, KeyCode::Enter) => Some(EditorCommand::Confirm)` to `(_, KeyCode::Enter) => Some(EditorCommand::Enter)`
-- [ ] T010 Add match arm for `EditorCommand::Enter` in `handle_editing_command` in `src/app.rs`: delegate to a private helper that inserts '\n' at `self.cursor.char_index` using `buffer::insert_text`, updates cursor position, calls `document.mark_dirty()`, and sets status message
-- [ ] T011 Ensure the new match arm for `Enter` does NOT conflict with existing `Confirm`/`Cancel`/choice-handling patterns in search mode — verify that `handle_search_command` still maps Enter to `Confirm` (no change needed, but audit confirms correctness)
+- [X] T008 Add `Enter` variant to `EditorCommand` enum in `src/editor/input.rs`
+- [X] T009 Update `map_key_event` in `src/editor/input.rs`: change `(_, KeyCode::Enter) => Some(EditorCommand::Confirm)` to `(_, KeyCode::Enter) => Some(EditorCommand::Enter)`
+- [X] T010 Add match arm for `EditorCommand::Enter` in `handle_editing_command` in `src/app.rs`: delegate to a private helper that inserts '\n' at `self.cursor.char_index` using `buffer::insert_text`, updates cursor position, calls `document.mark_dirty()`, and sets status message
+- [X] T011 Ensure the new match arm for `Enter` does NOT conflict with existing `Confirm`/`Cancel`/choice-handling patterns in search mode — verify that `handle_search_command` still maps Enter to `Confirm` (no change needed, but audit confirms correctness)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently and all tests pass
 
@@ -70,11 +70,11 @@ description: "Task list for Enter Key Newline Editing feature"
 
 **Purpose**: Final review and quality assurance
 
-- [ ] T012 [P] Review readability of `src/editor/input.rs` and `src/app.rs` changes against Constitution Section I (Readability First): names reveal intent, control flow straightforward, no surprising behavior
-- [ ] T013 [P] Review maintainability of touched files against Constitution Section II (Maintainable Design): clear boundaries between input handling, command dispatch, buffer operations — one reason to change per module
-- [ ] T014 Verify security: confirm that `Enter` in editing mode does NOT override the read-only guard in any code path, and in search/prompt modes Enter still maps to `Confirm` as before (no behavioral regression)
-- [ ] T015 Run all tests (`cargo test --lib && cargo test --test integration`) to confirm no regressions from existing functionality
-- [ ] T016 Verify success criteria from spec.md: multi-line documents work (SC-001), mid-line split shows expected content (SC-002), document remains valid in all edge cases (SC-003)
+- [X] T012 [P] Review readability of `src/editor/input.rs` and `src/app.rs` changes against Constitution Section I (Readability First): names reveal intent, control flow straightforward, no surprising behavior
+- [X] T013 [P] Review maintainability of touched files against Constitution Section II (Maintainable Design): clear boundaries between input handling, command dispatch, buffer operations — one reason to change per module
+- [X] T014 Verify security: confirm that `Enter` in editing mode does NOT override the read-only guard in any code path, and in search/prompt modes Enter still maps to `Confirm` as before (no behavioral regression)
+- [X] T015 Run all tests (`cargo test --lib && cargo test --test integration`) to confirm no regressions from existing functionality
+- [X] T016 Verify success criteria from spec.md: multi-line documents work (SC-001), mid-line split shows expected content (SC-002), document remains valid in all edge cases (SC-003)
 
 ---
 

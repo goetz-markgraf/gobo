@@ -140,6 +140,7 @@ impl EditingSession {
                 let _ = self.save_document(None)?;
             }
             EditorCommand::Quit => self.request_quit(),
+            EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
             EditorCommand::Confirm
             | EditorCommand::Cancel
@@ -198,6 +199,7 @@ impl EditingSession {
             | EditorCommand::Search
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
+             |EditorCommand::Enter
             | EditorCommand::Resize(_) => {}
         }
 
@@ -222,7 +224,7 @@ impl EditingSession {
                         focus: next_unsaved_choice(&focus),
                     });
                 }
-                EditorCommand::Confirm => match focus {
+                EditorCommand::Confirm | EditorCommand::Enter => match focus {
                     UnsavedChoice::Save => {
                         if matches!(self.save_document(Some(action.clone()))?, SaveDisposition::Saved) {
                             self.mode = SessionMode::Exiting;
@@ -253,7 +255,7 @@ impl EditingSession {
                         resume_action,
                     });
                 }
-                EditorCommand::Confirm => match focus {
+                EditorCommand::Confirm | EditorCommand::Enter => match focus {
                     ConflictChoice::Reload => {
                         self.document.reload_from_disk()?;
                         self.cursor.char_index = 0;
