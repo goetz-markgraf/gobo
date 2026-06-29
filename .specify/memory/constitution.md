@@ -1,15 +1,10 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
+- Version change: 1.0.0 -> 1.1.0
 - Modified principles:
-  - Template principle 1 -> I. Readability First
-  - Template principle 2 -> II. Maintainable Design
-  - Template principle 3 -> III. Secure by Default
-  - Template principle 4 -> IV. Verification Before Merge
-  - Template principle 5 -> V. Scope and Simplicity Control
+  - IV. Verification Before Merge -> IV. Verification Before Merge
 - Added sections:
-  - Operational Constraints
-  - Development Workflow
+  - None
 - Removed sections:
   - None
 - Templates requiring updates:
@@ -17,6 +12,7 @@ Sync Impact Report
   - ✅ updated: .specify/templates/spec-template.md
   - ✅ updated: .specify/templates/tasks-template.md
   - ✅ updated: specs/001-shell-text-editor/plan.md
+  - ✅ checked, no change needed: README.md
   - ✅ checked, no change needed: AGENTS.md
   - ✅ checked, no files present: .specify/templates/commands/
 - Follow-up TODOs:
@@ -56,13 +52,16 @@ security for a local editor means minimizing unsafe behavior, protecting user da
 avoiding accidental disclosure.
 
 ### IV. Verification Before Merge
-Behavior-changing work MUST include verification proportional to risk. Core editing
-logic, persistence rules, and safety-critical flows such as save, unsaved-change
-warnings, read-only handling, conflict handling, and encoding validation MUST be
-covered by automated tests. Manual validation MAY supplement tests for terminal UX, but
-it MUST NOT replace automated checks for logic that can be tested repeatably. Bugs MUST
-be reproduced with a failing test or a documented manual procedure before being marked
-fixed. Rationale: readable and secure code still fails without disciplined proof.
+Every user-visible feature, behavior change, bug fix, and safety-relevant path MUST be
+secured with automated tests that prove the intended outcome and the relevant edge
+cases. Edge-case coverage MUST include invalid input, boundary conditions, permission or
+I/O failures, destructive-action safeguards, and regression scenarios whenever those
+risks apply. Manual validation MAY supplement tests for terminal UX, but it MUST NOT
+replace automated checks for logic that can be tested repeatably. Bugs MUST be
+reproduced with a failing test or a documented manual procedure before being marked
+fixed, and any fix for testable logic MUST add or update automated coverage. Rationale:
+readable and secure code still fails without disciplined proof, especially when edge
+cases are left untested.
 
 ### V. Scope and Simplicity Control
 The default decision MUST be to keep `gobo` a focused, single-binary, local-first,
@@ -91,9 +90,10 @@ readability, maintainability, and security simultaneously.
 - Every plan MUST pass a constitution check covering readability, maintainability,
   security, verification, and scope.
 - Every spec MUST define edge cases for invalid input, failure handling, permission
-  boundaries, and destructive actions where relevant.
-- Every task list MUST include work for required safeguards and verification when a
-  feature affects safety, persistence, permissions, or user data.
+  boundaries, destructive actions, and other feature-specific boundary conditions.
+- Every task list MUST include explicit automated test work that covers each feature's
+  main flow and relevant edge cases, plus any required safeguards for safety,
+  persistence, permissions, or user data.
 - Code review MUST reject changes that increase coupling, hide control flow, weaken
   failure handling, or add security-sensitive behavior without clear need.
 - Before merge, contributors MUST confirm that documentation, tests, and implementation
@@ -114,8 +114,11 @@ Versioning policy follows semantic versioning for governance changes:
 - PATCH: clarify wording, fix inconsistencies, or improve guidance without changing
   meaning.
 
+Compliance review MUST confirm that planned and delivered automated tests cover every
+implemented feature and its relevant edge cases before merge.
+
 If a change cannot comply, the plan or review record MUST document the exception, why
 it is necessary, the simpler alternative that was rejected, and the follow-up needed to
 return to compliance.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-29 | **Last Amended**: 2026-06-29
+**Version**: 1.1.0 | **Ratified**: 2026-06-29 | **Last Amended**: 2026-06-29

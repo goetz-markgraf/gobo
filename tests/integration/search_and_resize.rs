@@ -39,3 +39,18 @@ fn resize_updates_viewport_and_render_output() {
     assert_eq!(session.viewport.visible_height, 4);
     assert_eq!(view.body_lines.len(), 4);
 }
+
+#[test]
+fn empty_and_very_long_lines_render_without_crashing() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("long-lines.txt");
+    let long_line = "x".repeat(5000);
+    std::fs::write(&path, format!("\n{}\n", long_line)).unwrap();
+
+    let session = EditingSession::open(&path, TerminalSize::new(20, 5)).unwrap();
+    let view = session.render_view();
+
+    assert_eq!(view.body_lines.len(), 4);
+    assert_eq!(view.body_lines[0], "");
+    assert_eq!(view.body_lines[1].len(), 20);
+}

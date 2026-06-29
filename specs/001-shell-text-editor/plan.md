@@ -16,13 +16,13 @@ Build `gobo` as a standalone Rust terminal text editor for one UTF-8 document pe
 
 **Storage**: Local filesystem only; in-memory rope buffer for the open document; no database
 
-**Testing**: `cargo test` with unit tests for editor state transitions and integration tests that drive the app core with synthesized events and temporary files
+**Testing**: `cargo test` with unit and integration tests that cover every shipped feature plus relevant edge cases, including editor state transitions, synthesized-event flows, temporary-file persistence, failure paths, and destructive-action safeguards
 
 **Target Platform**: ANSI-capable terminal sessions on macOS and Linux first; packaged as a single local CLI binary
 
 **Project Type**: Standalone CLI/TUI application
 
-**Performance Goals**: Startup feels immediate for typical files; interactive editing/search remains responsive without perceptible lag on UTF-8 files up to 1 MB; local open/save operations for 1 MB files complete within about 1 second
+**Performance Goals**: For representative UTF-8 files up to 1 MB, local open, search, and save operations complete within 1 second each during the documented validation protocol, while interactive editing and terminal resize remain usable without restarting the session
 
 **Constraints**: Exactly one open document per session; UTF-8 text files only; no automatic crash recovery in the initial release; must warn before destructive actions and before saving over externally changed files; must support terminal resize; must clearly indicate read-only mode when a file cannot be written
 
@@ -37,7 +37,7 @@ Build `gobo` as a standalone Rust terminal text editor for one UTF-8 document pe
 - **Readability Gate**: PASS. The planned module split keeps CLI, app lifecycle, document state, rendering, cursor logic, search, and status feedback in focused files with clear responsibilities.
 - **Maintainability Gate**: PASS. Terminal I/O and rendering stay isolated from editor state so behavior can be tested without a live terminal and future changes stay localized.
 - **Security Gate**: PASS. The feature scope includes UTF-8 validation, read-only handling for non-writable files, unsaved-change guards, and explicit conflict prompts before overwriting externally changed files.
-- **Verification Gate**: PASS. The plan already requires unit tests for core editor logic and integration tests for open/save, unsaved-change protection, read-only/conflict handling, and search/resize behavior.
+- **Verification Gate**: PASS. The plan requires automated tests for every shipped behavior and relevant edge cases, including open/save, unsaved-change protection, read-only/conflict handling, search/resize behavior, encoding validation, and failure-path safeguards.
 - **Scope Gate**: PASS. The design remains a single-binary, single-document local editor and does not introduce plugins, network services, or other out-of-scope complexity.
 
 ### Post-Design Re-check

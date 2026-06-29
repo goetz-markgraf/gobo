@@ -82,7 +82,7 @@
 ### Tests for User Story 2
 
 - [X] T017 [P] [US2] Add failing integration coverage for quit attempts with unsaved changes in `tests/integration/unsaved_guards.rs`
-- [X] T018 [P] [US2] Add failing integration coverage for read-only files and external-change save conflicts in `tests/integration/readonly_and_conflict.rs`
+- [X] T018 [P] [US2] Add failing integration coverage for read-only files, unwritable save attempts, failed-save integrity, and external-change save conflicts in `tests/integration/readonly_and_conflict.rs`
 
 ### Implementation for User Story 2
 
@@ -103,7 +103,7 @@
 ### Tests for User Story 3
 
 - [X] T022 [P] [US3] Add failing unit coverage for cursor movement, preferred-column behavior, and viewport clamping in `tests/unit/cursor.rs`
-- [X] T023 [P] [US3] Add failing unit and integration coverage for case-insensitive search, no-match feedback, and resize handling in `tests/unit/search.rs` and `tests/integration/search_and_resize.rs`
+- [X] T023 [P] [US3] Add failing unit and integration coverage for case-insensitive search, no-match feedback, resize handling, and empty/very-long-line rendering behavior in `tests/unit/search.rs` and `tests/integration/search_and_resize.rs`
 
 ### Implementation for User Story 3
 
@@ -122,8 +122,8 @@
 
 - [X] T028 [P] Document CLI usage, keybindings, read-only behavior, conflict prompts, and no-crash-recovery scope in `README.md`
 - [X] T029 Optimize render and save hot paths for typical UTF-8 files up to 1 MB in `src/editor/buffer.rs`, `src/editor/render.rs`, and `src/document.rs`
-- [X] T030 [P] Add regression coverage for startup failure paths and UTF-8 grapheme-width handling in `tests/integration/open_and_save.rs` and `tests/unit/cursor.rs`
-- [X] T031 [P] Align the manual validation scenarios and expected outcomes with the implemented behavior in `specs/001-shell-text-editor/quickstart.md`
+- [X] T030 [P] Add regression coverage for startup failure paths, explicit invalid UTF-8 rejection, and UTF-8 grapheme-width handling in `tests/integration/open_and_save.rs` and `tests/unit/cursor.rs`
+- [X] T031 [P] Align the manual validation scenarios and measurable 1 MB validation protocol with the implemented behavior in `specs/001-shell-text-editor/quickstart.md`
 - [X] T032 Perform a final readability, maintainability, and security review of module boundaries and comments in `src/app.rs`, `src/document.rs`, and `src/editor/mod.rs`
 
 ---

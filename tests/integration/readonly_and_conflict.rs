@@ -24,6 +24,25 @@ fn readonly_file_blocks_edit_and_save() {
     assert!(session.status.as_ref().unwrap().text.contains("Read-only"));
 }
 
+#[cfg(unix)]
+#[test]
+fn failed_save_keeps_previous_disk_content_intact() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("cannot-save.txt");
+    fs::write(&path, "stable-content\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
+
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+    let save_result = session.handle_command(EditorCommand::Save);
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+
+    assert!(save_result.is_err());
+    assert_eq!(fs::read_to_string(&path).unwrap(), "stable-content\n");
+    assert!(session.document.dirty);
+}
+
 #[test]
 fn external_change_prompts_for_reload_overwrite_or_cancel() {
     let dir = tempdir().unwrap();

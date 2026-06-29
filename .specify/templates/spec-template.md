@@ -73,8 +73,10 @@
 <!--
   ACTION REQUIRED: The content in this section represents placeholders.
   Fill them out with the right edge cases.
-  Include destructive actions, invalid input, permission failures, and recovery
-  behavior for any user-visible error path.
+  Include destructive actions, invalid input, permission failures, boundary
+  conditions, and recovery behavior for any user-visible error path.
+  Every edge case listed here must map to automated test coverage in the plan and
+  tasks unless the case is truly untestable in automation, in which case explain why.
 -->
 
 - What happens when [boundary condition]?
@@ -98,11 +100,12 @@
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 - **FR-006**: System MUST define safe handling for [authentication/authorization, input validation, permissions, secrets, destructive actions, or equivalent security-relevant concern].
 - **FR-007**: System MUST describe any constraints needed to keep the implementation readable and maintainable, including clear boundaries between major responsibilities when relevant.
+- **FR-008**: System MUST define how automated tests will cover the primary flows and relevant edge cases for every feature in scope.
 
 *Example of marking unclear requirements:*
 
-- **FR-008**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-009**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-009**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-010**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -124,6 +127,7 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-005**: Automated tests cover the primary flow and defined edge cases for every in-scope feature.
 
 ## Assumptions
 

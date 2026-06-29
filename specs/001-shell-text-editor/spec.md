@@ -40,11 +40,11 @@ A user can open an existing text file or start a new one, change its content dir
 
 ### User Story 2 - Avoid accidental data loss (Priority: P2)
 
-A user is warned before losing unsaved changes so that mistakes such as quitting too early, opening another file, or interruptions do not silently discard work.
+A user is warned before losing unsaved changes so that mistakes such as quitting too early or terminal interruptions do not silently discard work.
 
 **Why this priority**: Terminal editing is often used for quick, high-value changes. Preventing accidental loss strongly affects user trust and day-to-day usability.
 
-**Independent Test**: Can be fully tested by editing a file, attempting to quit or replace the current document without saving, and verifying that the editor blocks destructive actions until the user confirms or saves.
+**Independent Test**: Can be fully tested by editing a file, attempting to quit without saving, and verifying that the editor blocks destructive actions until the user confirms, discards, or saves.
 
 **Acceptance Scenarios**:
 
@@ -83,6 +83,19 @@ A user can perform common editing tasks from the keyboard alone, including movin
 
 ### Functional Requirements
 
+### Minimum Input Contract
+
+The initial release defines this minimum keyboard contract for automated and manual validation:
+
+- `Arrow keys`: move the cursor
+- `Ctrl-S`: save the current document
+- `Ctrl-Q`: quit the editor, subject to unsaved-change protection
+- `Ctrl-F`: start in-editor search
+- `Enter`: confirm the focused prompt action
+- `Esc`: cancel the active prompt or search input
+- `Tab` / `Shift-Tab`: move focus between prompt actions
+
+
 - **FR-001**: The system MUST allow a user to start an editing session from the shell for exactly one target text file path, whether the file already exists or will be created on first save.
 - **FR-002**: The system MUST display the current document content in the terminal in a form the user can navigate and edit directly.
 - **FR-003**: The system MUST allow users to insert text, delete text, and replace text within the current document.
@@ -98,8 +111,8 @@ A user can perform common editing tasks from the keyboard alone, including movin
 - **FR-010a**: The system MUST support UTF-8 plain-text files in the initial release and MUST show a clear error when a target file is not valid UTF-8 text.
 - **FR-011**: The system MUST adapt its visible layout when the terminal size changes so that editing can continue without restarting the session.
 - **FR-012**: The system MUST start and operate as a standalone command-line application that users can invoke directly from a shell session.
-- **FR-013**: The system MUST preserve basic usability when editing common plain-text files used for notes, configuration, and source code.
-- **FR-013a**: The system MUST support smooth editing for typical plain-text files up to 1 MB in size in the initial release.
+- **FR-013**: The system MUST preserve interactive editing behavior for common plain-text files used for notes, configuration, and source code by meeting the measurable performance validation defined in FR-013a and SC-006.
+- **FR-013a**: In the initial release, the system MUST complete open, save, and search operations for representative UTF-8 plain-text files up to 1 MB within 1 second each on a local development machine during the documented validation protocol.
 - **FR-014**: The system MUST detect when the file on disk has changed since it was opened, warn the user before saving, and require an explicit choice to reload from disk, overwrite the file, or cancel the save.
 - **FR-015**: The system MUST support only one open document per editor session in the initial release and MUST require starting a new session to edit a different file.
 - **FR-016**: The system MUST NOT promise automatic recovery of unsaved work after a crash or terminal interruption in the initial release.
@@ -116,20 +129,16 @@ A user can perform common editing tasks from the keyboard alone, including movin
 
 - **SC-001**: A user can open an existing text file, make a simple edit, and save it successfully in under 30 seconds on first use.
 - **SC-002**: At least 90% of users completing a basic editing task can do so without needing to leave the terminal or rely on external instructions after initial onboarding.
-- **SC-003**: In validation scenarios covering quit and replace flows initiated within the editor, 100% of unsaved-change cases trigger a visible warning before user work is discarded.
+- **SC-003**: In validation scenarios covering quit and save-conflict flows within the one-document session model, 100% of unsaved-change cases trigger a visible warning before user work is discarded.
 - **SC-004**: In representative tests with common plain-text files, at least 95% of save attempts that fail provide a clear reason and leave the previously stored file content intact.
 - **SC-005**: Users can complete a find-and-edit workflow on a multi-line document using only keyboard input with a task completion rate of at least 90%.
-- **SC-006**: In representative validation runs with plain-text files up to 1 MB, the editor remains responsive enough for users to navigate, edit, search, and save without perceptible input lag.
+- **SC-006**: In the documented 1 MB validation protocol, opening the file, executing a search, and saving the file each complete within 1 second on a local development machine, and terminal resize keeps the session usable without restart.
 
 ## Assumptions
 
-- The first version allows exactly one open plain-text document per editor session.
 - The primary users are developers or terminal users who prefer lightweight shell-based tools for quick edits.
 - Advanced capabilities such as plugins, split views, multi-file tabs, collaborative editing, and rich text formatting are out of scope for the initial release.
 - The editor is expected to run in a terminal environment that supports interactive keyboard input and screen refresh.
 - Users launch the editor from a shell and provide the target file path at startup for that session.
 - The product goal of being simple and lightweight is interpreted as fast startup, keyboard-first interaction, and minimal operational setup for the user.
 - The initial release targets typical plain-text files up to 1 MB rather than very large-file workflows.
-- The initial release supports UTF-8 plain-text files only.
-- Crash recovery or automatic restoration of unsaved work is out of scope for the initial release.
-- Existing files that cannot be written but can be read open in read-only mode in the initial release.

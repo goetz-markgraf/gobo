@@ -128,6 +128,31 @@ cargo run -- <path>
 - Editing can continue without restarting the process.
 - Cursor and status information remain visible and coherent.
 
+## Validation Scenario 7: Measurable 1 MB performance protocol
+
+1. Create a representative UTF-8 file close to 1 MB:
+   ```bash
+   python3 - <<'PY'
+from pathlib import Path
+line = "αbeta gamma delta 12345\n"
+text = line * 40000
+Path('/tmp/gobo-1mb.txt').write_text(text[:1_000_000], encoding='utf-8')
+PY
+   ```
+2. Measure startup/open time:
+   ```bash
+   /usr/bin/time -p cargo run -- /tmp/gobo-1mb.txt
+   ```
+   Quit immediately with `Ctrl-Q` after the first render.
+3. Re-open the file, search for `gamma`, save once with `Ctrl-S`, and note elapsed wall-clock time for search response and save completion.
+4. Resize the terminal during the session and continue moving through the file.
+
+**Expected outcome**:
+- Opening the 1 MB file completes within 1 second on a local development machine.
+- A representative search completes within 1 second.
+- Saving the 1 MB file completes within 1 second.
+- Resize does not require restarting the session.
+
 ## References
 
 - Data model: [data-model.md](data-model.md)

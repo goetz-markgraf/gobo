@@ -1,4 +1,6 @@
 target/
+debug/
+release/
 Cargo.lock
 .DS_Store
 Thumbs.db
@@ -8,6 +10,9 @@ Thumbs.db
 .idea/
 .env*
 *.log
+*.rlib
+*.prof*
+*.rs.bk
 
 
 # Added by cargo

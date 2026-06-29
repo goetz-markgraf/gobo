@@ -43,7 +43,7 @@
 - **Readability Gate**: Identify the main modules, their responsibilities, and why the design stays easy to read and review.
 - **Maintainability Gate**: Show the boundary lines between state, I/O, rendering, persistence, and other major concerns; justify any new abstraction or dependency.
 - **Security Gate**: List user-data, input-validation, permission, destructive-action, and dependency risks; describe the fail-safe behavior for each relevant risk.
-- **Verification Gate**: Define the automated tests and any targeted manual checks needed to prove the change and guard against regressions.
+- **Verification Gate**: Define automated tests that cover every planned feature behavior and its relevant edge cases, plus any targeted manual checks needed for terminal UX or other behavior that cannot be tested repeatably in automation.
 - **Scope Gate**: Confirm the feature fits the project's approved product scope and call out any constitutional exception that would be required.
 
 If any gate cannot pass, document the gap and the required exception in **Complexity Tracking** before implementation proceeds.
