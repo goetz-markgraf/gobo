@@ -73,10 +73,14 @@
 <!--
   ACTION REQUIRED: The content in this section represents placeholders.
   Fill them out with the right edge cases.
+  Include destructive actions, invalid input, permission failures, and recovery
+  behavior for any user-visible error path.
 -->
 
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
+- How does the system fail safely when [invalid input, missing permission, or external dependency failure] occurs?
+- What prevents accidental data loss or unsafe destructive actions in [relevant workflow]?
 
 ## Requirements *(mandatory)*
 
@@ -92,11 +96,13 @@
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-006**: System MUST define safe handling for [authentication/authorization, input validation, permissions, secrets, destructive actions, or equivalent security-relevant concern].
+- **FR-007**: System MUST describe any constraints needed to keep the implementation readable and maintainable, including clear boundaries between major responsibilities when relevant.
 
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-008**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-009**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -108,6 +114,8 @@
 <!--
   ACTION REQUIRED: Define measurable success criteria.
   These must be technology-agnostic and measurable.
+  Include at least one outcome that proves the primary workflow remains safe,
+  understandable, and verifiable for users or maintainers.
 -->
 
 ### Measurable Outcomes

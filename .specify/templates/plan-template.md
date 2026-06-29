@@ -40,7 +40,13 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **Readability Gate**: Identify the main modules, their responsibilities, and why the design stays easy to read and review.
+- **Maintainability Gate**: Show the boundary lines between state, I/O, rendering, persistence, and other major concerns; justify any new abstraction or dependency.
+- **Security Gate**: List user-data, input-validation, permission, destructive-action, and dependency risks; describe the fail-safe behavior for each relevant risk.
+- **Verification Gate**: Define the automated tests and any targeted manual checks needed to prove the change and guard against regressions.
+- **Scope Gate**: Confirm the feature fits the project's approved product scope and call out any constitutional exception that would be required.
+
+If any gate cannot pass, document the gap and the required exception in **Complexity Tracking** before implementation proceeds.
 
 ## Project Structure
 
