@@ -80,7 +80,7 @@ tests/
     └── readonly_and_conflict.rs
 ```
 
-**Structure Decision**: Reuse the current single-crate layout. Keep prompt lifecycle and save/quit decision logic in `src/app.rs`, represent popup presentation in `src/editor/render.rs` and `src/editor/status.rs`, render the overlay in `src/main.rs`, and prove behavior through focused integration tests in `tests/integration/`.
+**Structure Decision**: Reuse the current single-crate layout. Keep prompt lifecycle and save/quit decision logic in `src/app.rs`, represent popup layout and full-text rendering in `src/editor/render.rs`, render status labels (`Save`/`Discard`/`Cancel`) from `src/editor/status.rs`, render the overlay in `src/main.rs`, and prove behavior through focused integration tests in `tests/integration/`.
 
 ## Complexity Tracking
 

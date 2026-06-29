@@ -76,7 +76,7 @@
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [X] T012 [P] [US2] Add failing integration coverage for resize-while-prompted behavior and compact popup fallback in `tests/integration/search_and_resize.rs`
+- [X] T012 [P] [US2] Add failing integration coverage for resize-while-prompted behavior and compact popup fallback in `tests/integration/search_and_resize.rs`. Test the tightest boundary using `std::cmp::min(5, terminal_height)` to verify compact popup rendering at near-zero height.
 - [X] T013 [P] [US2] Add failing integration coverage for long file-path popup precedence in `tests/integration/unsaved_guards.rs`
 
 ### Implementation for User Story 2

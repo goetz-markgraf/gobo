@@ -45,7 +45,7 @@ The popup exposes exactly three choices:
 - Attempt to save the current document.
 - If save succeeds, continue the pending quit flow and exit.
 - If save fails, close the popup, keep the editor open, preserve unsaved changes, and show the existing save error message UI.
-- If save detects an external-change conflict, the save-conflict flow may take over.
+- **Save-conflict flow:** When an external change conflict is detected, the editor delegates to the existing save-conflict resolution prompt (see `src/document.rs` conflict-handling path). The quit confirmation remains on hold until the user resolves the conflict—this prevents silent data loss from overwriting newer content.
 
 ### Discard
 - Close the popup and exit without saving.
