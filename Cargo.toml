@@ -1,0 +1,43 @@
+[package]
+name = "gobo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+ratatui = "0.29"
+crossterm = "0.28"
+ropey = "1.6"
+unicode-segmentation = "1.12"
+unicode-width = "0.2"
+
+[dev-dependencies]
+tempfile = "3.20"
+
+[[test]]
+name = "integration_open_and_save"
+path = "tests/integration/open_and_save.rs"
+
+[[test]]
+name = "integration_unsaved_guards"
+path = "tests/integration/unsaved_guards.rs"
+
+[[test]]
+name = "integration_readonly_and_conflict"
+path = "tests/integration/readonly_and_conflict.rs"
+
+[[test]]
+name = "integration_search_and_resize"
+path = "tests/integration/search_and_resize.rs"
+
+[[test]]
+name = "unit_buffer"
+path = "tests/unit/buffer.rs"
+
+[[test]]
+name = "unit_cursor"
+path = "tests/unit/cursor.rs"
+
+[[test]]
+name = "unit_search"
+path = "tests/unit/search.rs"

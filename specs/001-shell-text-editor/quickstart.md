@@ -30,6 +30,7 @@ cargo run -- <path>
 3. Confirm the UI shows the document as modified.
 4. Save with `Ctrl-S`.
 5. Exit with `Ctrl-Q`.
+   - If a prompt appears, use `Tab` / `Shift-Tab` or arrow keys to change the focused action, `Enter` to confirm, and `Esc` to cancel.
 6. Verify the file content:
    ```bash
    cat /tmp/gobo-new.txt
@@ -57,7 +58,7 @@ cargo run -- <path>
 
 **Expected outcome**:
 - The first quit attempt does not discard changes immediately.
-- A visible prompt offers save/discard/cancel behavior.
+- A visible prompt offers save/discard/cancel behavior, with keyboard navigation between actions.
 - Cancel returns to the editor with content intact.
 
 ## Validation Scenario 3: Search and no-match feedback
@@ -114,7 +115,7 @@ cargo run -- <path>
 
 **Expected outcome**:
 - The editor detects the on-disk change before writing.
-- A prompt offers reload, overwrite, or cancel.
+- A prompt offers reload, overwrite, or cancel, with keyboard navigation between actions.
 - Choosing cancel preserves the in-memory unsaved state.
 
 ## Validation Scenario 6: Terminal resize resilience

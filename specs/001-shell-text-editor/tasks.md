@@ -27,9 +27,9 @@
 
 **Purpose**: Initialize the Rust binary project and create the file layout required by the implementation plan.
 
-- [ ] T001 Initialize the Rust binary crate and declare `clap`, `ratatui`, `crossterm`, `ropey`, `unicode-segmentation`, and `unicode-width` in `Cargo.toml`
-- [ ] T002 Create the application module skeleton in `src/main.rs`, `src/cli.rs`, `src/app.rs`, `src/document.rs`, `src/editor/mod.rs`, `src/editor/buffer.rs`, `src/editor/cursor.rs`, `src/editor/input.rs`, `src/editor/render.rs`, `src/editor/search.rs`, and `src/editor/status.rs`
-- [ ] T003 [P] Create the planned automated test files in `tests/integration/open_and_save.rs`, `tests/integration/unsaved_guards.rs`, `tests/integration/readonly_and_conflict.rs`, `tests/integration/search_and_resize.rs`, `tests/unit/buffer.rs`, `tests/unit/cursor.rs`, and `tests/unit/search.rs`
+- [X] T001 Initialize the Rust binary crate and declare `clap`, `ratatui`, `crossterm`, `ropey`, `unicode-segmentation`, and `unicode-width` in `Cargo.toml`
+- [X] T002 Create the application module skeleton in `src/main.rs`, `src/cli.rs`, `src/app.rs`, `src/document.rs`, `src/editor/mod.rs`, `src/editor/buffer.rs`, `src/editor/cursor.rs`, `src/editor/input.rs`, `src/editor/render.rs`, `src/editor/search.rs`, and `src/editor/status.rs`
+- [X] T003 [P] Create the planned automated test files in `tests/integration/open_and_save.rs`, `tests/integration/unsaved_guards.rs`, `tests/integration/readonly_and_conflict.rs`, `tests/integration/search_and_resize.rs`, `tests/unit/buffer.rs`, `tests/unit/cursor.rs`, and `tests/unit/search.rs`
 
 ---
 
@@ -39,13 +39,13 @@
 
 **⚠️ CRITICAL**: Complete this phase before starting user story implementation.
 
-- [ ] T004 Implement the one-path CLI contract, startup validation, and exit-code error mapping in `src/cli.rs` and `src/main.rs`
-- [ ] T005 [P] Implement `DocumentBuffer`, `AccessMode`, `DiskSnapshot`, UTF-8 decoding checks, and filesystem open/save primitives in `src/document.rs`
-- [ ] T006 [P] Implement `EditingSession`, `SessionMode`, prompt state, and high-level app state transitions in `src/app.rs` and `src/editor/mod.rs`
-- [ ] T007 [P] Implement rope-backed text operations and line/character helpers for the in-memory buffer in `src/editor/buffer.rs`
-- [ ] T008 [P] Implement cursor state, preferred-column movement support, viewport bookkeeping, and terminal-size models in `src/editor/cursor.rs` and `src/editor/render.rs`
-- [ ] T009 [P] Implement shared status-message and prompt-display scaffolding for the TUI in `src/editor/status.rs` and `src/editor/render.rs`
-- [ ] T010 Add foundational unit coverage for buffer, document, and cursor invariants in `tests/unit/buffer.rs` and `tests/unit/cursor.rs`
+- [X] T004 Implement the one-path CLI contract, startup validation, and exit-code error mapping in `src/cli.rs` and `src/main.rs`
+- [X] T005 [P] Implement `DocumentBuffer`, `AccessMode`, `DiskSnapshot`, UTF-8 decoding checks, and filesystem open/save primitives in `src/document.rs`
+- [X] T006 [P] Implement `EditingSession`, `SessionMode`, prompt state, and high-level app state transitions in `src/app.rs` and `src/editor/mod.rs`
+- [X] T007 [P] Implement rope-backed text operations and line/character helpers for the in-memory buffer in `src/editor/buffer.rs`
+- [X] T008 [P] Implement cursor state, preferred-column movement support, viewport bookkeeping, and terminal-size models in `src/editor/cursor.rs` and `src/editor/render.rs`
+- [X] T009 [P] Implement shared status-message and prompt-display scaffolding for the TUI in `src/editor/status.rs` and `src/editor/render.rs`
+- [X] T010 Add foundational unit coverage for buffer, document, and cursor invariants in `tests/unit/buffer.rs` and `tests/unit/cursor.rs`
 
 **Checkpoint**: Foundation complete — the project can now deliver user stories in vertical slices.
 
@@ -59,15 +59,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Add failing integration coverage for opening an existing UTF-8 file, editing it, and saving it in `tests/integration/open_and_save.rs`
-- [ ] T012 [P] [US1] Add failing integration coverage for starting from a missing file path and creating the file on first save in `tests/integration/open_and_save.rs`
+- [X] T011 [P] [US1] Add failing integration coverage for opening an existing UTF-8 file, editing it, and saving it in `tests/integration/open_and_save.rs`
+- [X] T012 [P] [US1] Add failing integration coverage for starting from a missing file path and creating the file on first save in `tests/integration/open_and_save.rs`
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Implement insert, delete, and replace editing commands over the rope buffer in `src/editor/buffer.rs` and `src/editor/input.rs`
-- [ ] T014 [US1] Implement dirty tracking, save execution, and save success/failure feedback in `src/app.rs`, `src/document.rs`, and `src/editor/status.rs`
-- [ ] T015 [P] [US1] Render document text, cursor placement, file path, and dirty-state indicators in `src/editor/render.rs` and `src/editor/status.rs`
-- [ ] T016 [US1] Wire the interactive event loop so `gobo <path>` opens exactly one editable document session in `src/main.rs`, `src/cli.rs`, and `src/app.rs`
+- [X] T013 [P] [US1] Implement insert, delete, and replace editing commands over the rope buffer in `src/editor/buffer.rs` and `src/editor/input.rs`
+- [X] T014 [US1] Implement dirty tracking, save execution, and save success/failure feedback in `src/app.rs`, `src/document.rs`, and `src/editor/status.rs`
+- [X] T015 [P] [US1] Render document text, cursor placement, file path, and dirty-state indicators in `src/editor/render.rs` and `src/editor/status.rs`
+- [X] T016 [US1] Wire the interactive event loop so `gobo <path>` opens exactly one editable document session in `src/main.rs`, `src/cli.rs`, and `src/app.rs`
 
 **Checkpoint**: User Story 1 is a complete MVP slice and should be independently demoable.
 
@@ -81,14 +81,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] Add failing integration coverage for quit attempts with unsaved changes in `tests/integration/unsaved_guards.rs`
-- [ ] T018 [P] [US2] Add failing integration coverage for read-only files and external-change save conflicts in `tests/integration/readonly_and_conflict.rs`
+- [X] T017 [P] [US2] Add failing integration coverage for quit attempts with unsaved changes in `tests/integration/unsaved_guards.rs`
+- [X] T018 [P] [US2] Add failing integration coverage for read-only files and external-change save conflicts in `tests/integration/readonly_and_conflict.rs`
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement unsaved-change prompts with save, discard, and cancel outcomes for quit flows in `src/app.rs` and `src/editor/status.rs`
-- [ ] T020 [P] [US2] Enforce read-only mode for non-writable files and show blocked-edit or blocked-save feedback in `src/document.rs`, `src/editor/input.rs`, and `src/editor/status.rs`
-- [ ] T021 [US2] Implement pre-save disk snapshot checks and reload/overwrite/cancel conflict resolution in `src/document.rs`, `src/app.rs`, and `src/editor/status.rs`
+- [X] T019 [US2] Implement unsaved-change prompts with save, discard, and cancel outcomes for quit flows in `src/app.rs` and `src/editor/status.rs`
+- [X] T020 [P] [US2] Enforce read-only mode for non-writable files and show blocked-edit or blocked-save feedback in `src/document.rs`, `src/editor/input.rs`, and `src/editor/status.rs`
+- [X] T021 [US2] Implement pre-save disk snapshot checks and reload/overwrite/cancel conflict resolution in `src/document.rs`, `src/app.rs`, and `src/editor/status.rs`
 
 **Checkpoint**: User Story 2 safely protects the editing workflow from the main accidental-loss paths.
 
@@ -102,15 +102,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] Add failing unit coverage for cursor movement, preferred-column behavior, and viewport clamping in `tests/unit/cursor.rs`
-- [ ] T023 [P] [US3] Add failing unit and integration coverage for case-insensitive search, no-match feedback, and resize handling in `tests/unit/search.rs` and `tests/integration/search_and_resize.rs`
+- [X] T022 [P] [US3] Add failing unit coverage for cursor movement, preferred-column behavior, and viewport clamping in `tests/unit/cursor.rs`
+- [X] T023 [P] [US3] Add failing unit and integration coverage for case-insensitive search, no-match feedback, and resize handling in `tests/unit/search.rs` and `tests/integration/search_and_resize.rs`
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] Implement keyboard navigation and vertical/horizontal cursor motion in `src/editor/input.rs` and `src/editor/cursor.rs`
-- [ ] T025 [P] [US3] Implement case-insensitive search state, match jumping, and no-match status feedback in `src/editor/search.rs` and `src/editor/status.rs`
-- [ ] T026 [US3] Implement terminal resize handling, viewport reflow, and redraw behavior in `src/app.rs` and `src/editor/render.rs`
-- [ ] T027 [P] [US3] Add visible status affordances for current file, mode, save state, and available next actions in `src/editor/status.rs` and `src/editor/render.rs`
+- [X] T024 [US3] Implement keyboard navigation and vertical/horizontal cursor motion in `src/editor/input.rs` and `src/editor/cursor.rs`
+- [X] T025 [P] [US3] Implement case-insensitive search state, match jumping, and no-match status feedback in `src/editor/search.rs` and `src/editor/status.rs`
+- [X] T026 [US3] Implement terminal resize handling, viewport reflow, and redraw behavior in `src/app.rs` and `src/editor/render.rs`
+- [X] T027 [P] [US3] Add visible status affordances for current file, mode, save state, and available next actions in `src/editor/status.rs` and `src/editor/render.rs`
 
 **Checkpoint**: User Story 3 completes the keyboard-first terminal experience.
 
@@ -120,11 +120,11 @@
 
 **Purpose**: Finish documentation, performance, regression coverage, and final constitutional review across the whole feature.
 
-- [ ] T028 [P] Document CLI usage, keybindings, read-only behavior, conflict prompts, and no-crash-recovery scope in `README.md`
-- [ ] T029 Optimize render and save hot paths for typical UTF-8 files up to 1 MB in `src/editor/buffer.rs`, `src/editor/render.rs`, and `src/document.rs`
-- [ ] T030 [P] Add regression coverage for startup failure paths and UTF-8 grapheme-width handling in `tests/integration/open_and_save.rs` and `tests/unit/cursor.rs`
-- [ ] T031 [P] Align the manual validation scenarios and expected outcomes with the implemented behavior in `specs/001-shell-text-editor/quickstart.md`
-- [ ] T032 Perform a final readability, maintainability, and security review of module boundaries and comments in `src/app.rs`, `src/document.rs`, and `src/editor/mod.rs`
+- [X] T028 [P] Document CLI usage, keybindings, read-only behavior, conflict prompts, and no-crash-recovery scope in `README.md`
+- [X] T029 Optimize render and save hot paths for typical UTF-8 files up to 1 MB in `src/editor/buffer.rs`, `src/editor/render.rs`, and `src/document.rs`
+- [X] T030 [P] Add regression coverage for startup failure paths and UTF-8 grapheme-width handling in `tests/integration/open_and_save.rs` and `tests/unit/cursor.rs`
+- [X] T031 [P] Align the manual validation scenarios and expected outcomes with the implemented behavior in `specs/001-shell-text-editor/quickstart.md`
+- [X] T032 Perform a final readability, maintainability, and security review of module boundaries and comments in `src/app.rs`, `src/document.rs`, and `src/editor/mod.rs`
 
 ---
 
