@@ -7,9 +7,11 @@ description: "Task list for Enter Key Newline Editing feature"
 
 **Input**: Design documents from `/specs/003-enter-newline-edit/`
 
-**Prerequisites**: plan.md, spec.md, data-model.md, contracts/editor-command-enter.md
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/editor-command-enter.md
 
-**Tests**: Automated test tasks are REQUIRED. Every user story and every in-scope feature must include tasks for the primary flow and relevant edge cases.
+**Tests**: Automated test tasks are REQUIRED. Every user story and every user-visible feature must include automated tests covering the primary flow and relevant edge cases per Constitution Section IV (Verification Before Merge).
+
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -17,52 +19,62 @@ description: "Task list for Enter Key Newline Editing feature"
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2)
 - Include exact file paths in descriptions
 
-<!--
-    ============================================================================
-  Tasks generated from specs/003-enter-newline-edit design documents.
+## Phase 1: Setup
 
-  Both user stories share the same core behavior: inserting '\n' at cursor position.
-  The Enter key is mapped to EditorCommand::Enter (currently maps to Confirm),
-  and the handler delegates to existing insert_text method which has read-only
-  guard, cursor update, dirty flag, and status message setup.
+**Purpose**: Verify the project builds and environment is ready
 
-  Scope: 2 files modified (input.rs, app.rs) + 1 new test file (enter_newline.rs)
-    ============================================================================
--->
-
-## Phase 3: User Story 1 - Press Enter to Create / Split Lines (Priority: P1)
-
-**Goal**: Pressing Enter with cursor at the end of a line creates a new blank line below. Pressing Enter mid-line splits the current line — text before cursor stays on top, text after moves to the new bottom line. Cursor ends up at position 0 of the new second line.
-
-**Independent Test**: Open a document, type "Hello World", move cursor between "Hello" and "World", press Enter. Verify: line 1 = "Hello ", line 2 = "World", cursor positioned at start of line 2. Then position cursor at end of any line and press Enter — a new blank line appears below. Both lines remain intact.
-
-### Tests for User Story 1 (REQUIRED)
-
-> **NOTE: Write these tests first to verify they FAIL before implementation**
-
-- [ ] T004 [P] [US1] Integration test: end-of-line Enter creates new blank line in tests/integration/enter_newline.rs
-- [ ] T005 [P] [US1] Integration test: mid-line Enter splits line into two with correct content in tests/integration/enter_newline.rs
-- [ ] T006 [P] [US1] Integration test: Edge case — Enter on empty document creates first line in tests/integration/enter_newline.rs
-- [ ] T007 [P] [US1] Integration test: Edge case — Enter on empty line adds second blank line in tests/integration/enter_newline.rs
-- [ ] T008 [P] [US1] Integration test: Edge case — Enter on read-only file blocks edit in tests/integration/enter_newline.rs
-
-### Implementation for User Story 1
-
-- [ ] T009 [US1] Add `EditorCommand::Enter` variant to `EditorCommand` enum in src/editor/input.rs
-- [ ] T010 [US1] Change key mapping from `Confirm` to `Enter` for `KeyCode::Enter` in `map_key_event` in src/editor/input.rs
-- [ ] T011 [US1] Add match arm for `EditorCommand::Enter` delegating to `self.insert_text("\n")` in `handle_editing_command` in src/app.rs
-
-**Checkpoint**: User Story 1 is fully functional — Enter creates newlines at end of line, splits lines mid-line, preserves other content, and places cursor correctly.
+- [ ] T001 Verify `cargo build --release` succeeds from repository root
+- [ ] T002 Ensure `tests/integration/` directory exists with existing test files
 
 ---
 
-## Phase 4: Polish & Cross-Cutting Concerns
+## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Validation against design documents and existing regression safety
+**Purpose**: Prepare the codebase for the Enter command addition — no user story behavior changes yet
 
-- [ ] T012 Run `cargo test --lib` and `cargo test --test integration` to confirm all existing tests still pass
-- [ ] T013 Validate quickstart.md manual scenarios (scenario 1: end-of-line, scenario 2: mid-line, scenario 4: empty document) against the built editor
-- [ ] T014 Review readability of src/editor/input.rs and src/app.rs — confirm naming consistency with existing conventions
+- [ ] T003 [P] Document module boundaries and coding conventions for `src/editor/input.rs` and `src/app.rs` in relevant file comments
+- [ ] T004 Identify safeguard requirements: confirm `DocumentBuffer::is_read_only()` guard already blocks edits throughout the edit pipeline (verify in `handle_editing_command`, `insert_text`, `backspace`, `delete` in src/app.rs)
+
+**Checkpoint**: Foundation ready - user story implementation can now begin
+
+---
+
+## Phase 3: User Story 1 + User Story 2 - Enter Key Newline Editing (Priority: P1) 🎯 MVP
+
+> **Note**: US1 (end-of-line newline) and US2 (mid-line split) are two behavioral outcomes of the same underlying operation — inserting '\n' at the cursor position. They share a single implementation path and can be implemented as one cohesive task, then tested with separate test files for each scenario.
+
+**Goal**: Add `EditorCommand::Enter` variant, map Enter key to it, and handle newline insertion at cursor using existing buffer utilities. Pressing Enter at end-of-line creates a new blank line; pressing Enter mid-line splits the line into two.
+
+**Independent Test**: Run the editor, press Enter at end of a line — verify a blank line appears below with cursor positioned at column 0. Move cursor mid-line and press Enter — verify the line splits with text before cursor on the top line and text after cursor on the new bottom line.
+
+### Tests for User Story 1 + User Story 2 (REQUIRED) ⚠️
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T005 [P] [US1] Integration test for Enter-at-end-of-line creating a new blank line in `tests/integration/enter_newline.rs`
+- [ ] T006 [P] [US2] Integration test for Enter-mid-line splitting the line correctly in `tests/integration/enter_newline.rs`
+- [ ] T007 [P] Edge-case integration tests (empty document, single empty line, read-only protection) in `tests/integration/enter_newline.rs`
+
+### Implementation for User Stories 1 + 2
+
+- [ ] T008 Add `Enter` variant to `EditorCommand` enum in `src/editor/input.rs`
+- [ ] T009 Update `map_key_event` in `src/editor/input.rs`: change `(_, KeyCode::Enter) => Some(EditorCommand::Confirm)` to `(_, KeyCode::Enter) => Some(EditorCommand::Enter)`
+- [ ] T010 Add match arm for `EditorCommand::Enter` in `handle_editing_command` in `src/app.rs`: delegate to a private helper that inserts '\n' at `self.cursor.char_index` using `buffer::insert_text`, updates cursor position, calls `document.mark_dirty()`, and sets status message
+- [ ] T011 Ensure the new match arm for `Enter` does NOT conflict with existing `Confirm`/`Cancel`/choice-handling patterns in search mode — verify that `handle_search_command` still maps Enter to `Confirm` (no change needed, but audit confirms correctness)
+
+**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently and all tests pass
+
+---
+
+## Phase N: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final review and quality assurance
+
+- [ ] T012 [P] Review readability of `src/editor/input.rs` and `src/app.rs` changes against Constitution Section I (Readability First): names reveal intent, control flow straightforward, no surprising behavior
+- [ ] T013 [P] Review maintainability of touched files against Constitution Section II (Maintainable Design): clear boundaries between input handling, command dispatch, buffer operations — one reason to change per module
+- [ ] T014 Verify security: confirm that `Enter` in editing mode does NOT override the read-only guard in any code path, and in search/prompt modes Enter still maps to `Confirm` as before (no behavioral regression)
+- [ ] T015 Run all tests (`cargo test --lib && cargo test --test integration`) to confirm no regressions from existing functionality
+- [ ] T016 Verify success criteria from spec.md: multi-line documents work (SC-001), mid-line split shows expected content (SC-002), document remains valid in all edge cases (SC-003)
 
 ---
 
@@ -70,43 +82,63 @@ description: "Task list for Enter Key Newline Editing feature"
 
 ### Phase Dependencies
 
-- **User Story 1 (Phase 3)**: No phase dependencies — this is a focused single-editor feature on an existing, building Rust project.
-   - T004-T008 (tests) can run in parallel
-   - Tests must FAIL before implementation tasks (T009-T011) are completed
-   - T011 depends on T009 and T010 (code must compile for tests to work)
+- **Setup (Phase 1)**: No dependencies - can start immediately
+- **Foundational (Phase 2)**: Depends on Setup completion
+- **User Stories (Phase 3)**: Depend on Foundational phase completion
+- **Polish (Phase N)**: Depends on User Stories being complete
+
+### User Story Dependencies
+
+- **US1 + US2 (P1, same file, single implementation)**: Can start after Foundational — no dependencies on other stories since this is the first feature addition
 
 ### Within Each User Story
 
-- Integration tests for the story's primary flow and edge cases must be written first and FAIL before implementation
-- Add variant (T009) before mapping change (T010), then handler (T011)
-- Read-only guard delegates automatically through `self.insert_text("\n")` — no additional checks needed
+- Automated tests MUST be written and FAIL before implementation (Constitution Section IV)
+- Tests written first → Implementation → Tests pass
+- Integration tests verify behavior through `cargo test --test integration`
+- Readability/maintainability review after implementation
 
-### Parallel Opportunities
+---
 
-- All test tasks (T004-T008) can be written and run in parallel
-- Variant enum addition (T009), key mapping change (T010), and handler (T011) are sequentially dependent but small enough to complete together
-- T006 (empty document) is independent of T007 (empty line)
+## Parallel Example: Testing
+
+```bash
+# Run all Enter-key integration tests together:
+cargo test --test enter_newline
+
+# Run full regression suite to confirm no regressions:
+cargo test --lib && cargo test --test integration
+```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First
+### MVP First (Single User Story — US1 + US2)
 
-1. Add `EditorCommand::Enter` variant and key mapping in `src/editor/input.rs` (T009-T010)
-2. Add Enter handler delegating to `self.insert_text("\n")` in `handle_editing_command` (T011)
-3. Manual test: build and run editor, press Enter to verify newline behavior
-4. Write integration tests covering all acceptance scenarios (T004-T008)
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational
+3. Complete Phase 3: Implement Enter command + write failing tests → implement → all tests pass
+4. **STOP and VALIDATE**: Run `cargo test --test integration` to independently verify Enter behavior
+5. Complete Polish phase for final review
 
-### Incremental Delivery
+### Success Criteria
 
-1. T009+T010+T011: Core Enter key behavior works — manually test with built editor
-2. T004-T008: Automated tests verify all acceptance scenarios and edge cases
-3. T012: Regression check — confirm all existing tests still pass
+- `EditorCommand::Enter` exists in the enum
+- Enter key maps to `EditorCommand::Enter` (not `Confirm`) via `map_key_event`
+- Pressing Enter at end of line creates a new blank line
+- Pressing Enter mid-line splits correctly with cursor positioned between halves
+- Read-only protection works (no edits, status message shown)
+- Search mode Enter key still maps to `Confirm` (no regression)
+- All existing tests pass + new integration tests pass
 
-### Notes
+---
 
-- Both US1 P1 stories share the same implementation since inserting `'\n'` at cursor handles both end-of-line newline creation AND mid-line splitting automatically
-- No new modules, no changes to save/draw/render paths
-- Handled via existing `buffer::insert_text` — no new buffer methods needed
-- Read-only guard is handled automatically by the shared `insert_text` method
+## Notes
+
+- [P] tasks = different files, no dependencies
+- [Story] label maps task to specific user story for traceability
+- US1 and US2 share a single implementation (same file edits, same code path)
+- Verify tests fail before implementing (Constitution Section IV: Verification Before Merge)
+- Commit after each task or logical group
+- Stop at checkpoint to validate story independently
