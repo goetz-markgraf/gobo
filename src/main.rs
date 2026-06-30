@@ -83,7 +83,11 @@ fn draw(
     let view = session.render_view();
     terminal
         .draw(|frame| {
-            let prompt_height = if view.bottom_line.is_some() { 1 } else { 0 };
+            let prompt_height = if view.bottom_line.is_some() { 
+                session.prompt_lines()
+             } else { 
+                1 
+              };
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -101,13 +105,16 @@ fn draw(
                 .block(Block::default().borders(Borders::TOP));
             frame.render_widget(status, chunks[1]);
 
+            
             if let Some(prompt_line) = view.bottom_line {
                 let prompt = Paragraph::new(prompt_line)
-                    .style(Style::default().fg(Color::Yellow))
+                    .style(Style::default()
+                        .fg(Color::Yellow)
+                        .bg(Color::Black)
+                        .add_modifier(Modifier::BOLD))
                     .block(Block::default().borders(Borders::TOP));
                 frame.render_widget(prompt, chunks[2]);
             }
-
             if let Some(popup) = &view.popup {
                 let rect = ratatui::layout::Rect::new(
                     popup.rect.x,

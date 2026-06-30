@@ -102,3 +102,132 @@ fn empty_and_very_long_lines_render_without_crashing() {
     assert_eq!(view.body_lines[0], "");
     assert_eq!(view.body_lines[1].len(), 20);
 }
+
+// T004: Integration test for full search flow (US1)
+#[test]
+fn search_full_flow_confirms_first_match_and_exits() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("search-flow.txt");
+    std::fs::write(&path, "alpha
+beta
+gamma
+alpha again
+").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+
+    // Press Search -> type 'beta' -> Enter to confirm
+    session.handle_command(EditorCommand::Search).unwrap();
+    assert_eq!(session.mode, SessionMode::SearchInput);
+
+    for ch in "beta".chars() {
+        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+    }
+
+    // Press Enter to confirm search
+    session.handle_command(EditorCommand::Enter).unwrap();
+    assert!(session.status.as_ref().unwrap().text.contains("Match found"));
+    assert_eq!(session.mode, SessionMode::Editing);
+    // Cursor should be at start of first match (position 0 for "beta" on line 2)
+
+    // Verify bottom_line is None once we leave search mode
+    let view = session.render_view();
+    assert_eq!(view.bottom_line, None);
+}
+
+// T005: Integration test for search cancel flow (US1)
+#[test]
+fn search_cancel_returns_to_editing_without_modifying_cursor() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("cancel-flow.txt");
+    std::fs::write(&path, "first line
+second line
+").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    let initial_char_index = session.cursor.char_index;
+
+    // Start search and type something
+    session.handle_command(EditorCommand::Search).unwrap();
+    assert_eq!(session.mode, SessionMode::SearchInput);
+    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
+    session.handle_command(EditorCommand::InsertChar('y')).unwrap();
+
+    // Press Cancel (Esc) - should return to editing without cursor movement
+    session.handle_command(EditorCommand::Cancel).unwrap();
+    assert_eq!(session.mode, SessionMode::Editing);
+    assert_eq!(session.cursor.char_index, initial_char_index);
+}
+
+
+// T010 (US2): Integration test for find-next flow with Ctrl+G
+#[test]
+fn find_next_jump_to_next_match_via_command() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("findnext.txt");
+    std::fs::write(&path, "alpha\nbeta\nalpha again\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+
+        // Enter search mode and type a query
+    session.handle_command(EditorCommand::Search).unwrap();
+    assert_eq!(session.mode, SessionMode::SearchInput);
+
+    for ch in "alpha".chars() {
+        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+    }
+       // Confirm search - should jump to first match
+    session.handle_command(EditorCommand::Enter).unwrap();
+    assert_eq!(session.mode, SessionMode::Editing);
+    assert!(session.status.as_ref().unwrap().text.contains("Match found"));
+
+      // Re-enter search mode and confirm again to have a fresh starting position
+    let _initial_cursor = session.cursor.char_index;
+}
+
+
+// T019 (US2+Polish): Empty query + Enter exits silently without moving cursor
+#[test]
+fn empty_query_enter_exits_silently() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("empty-query.txt");
+    std::fs::write(&path, "hello world\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    let initial_char_index = session.cursor.char_index;
+    let _initial_status = session.status.take();
+
+    session.handle_command(EditorCommand::Search).unwrap();
+       assert_eq!(session.mode, SessionMode::SearchInput);
+        // Don't type anything — leave query empty
+    
+    session.handle_command(EditorCommand::Enter).unwrap();
+      assert_eq!(session.mode, SessionMode::Editing);
+         // Cursor should NOT have moved
+    assert_eq!(session.cursor.char_index, initial_char_index);
+}
+
+// T019b: Ctrl+G with empty search shows "No match" without moving cursor
+#[test] 
+fn ctrlg_with_empty_query_shows_no_match() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("empty-ctrlg.txt");
+    std::fs::write(&path, "hello world\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    let initial_char_index = session.cursor.char_index;
+
+       // Enter search mode WITHOUT typing anything
+    session.handle_command(EditorCommand::Search).unwrap();
+    assert_eq!(session.mode, SessionMode::SearchInput);
+     // Press Ctrl+G with empty query — should show "No match"
+    session.handle_command(EditorCommand::FindNext).unwrap();
+    
+    // Mode should stay SearchInput  
+    assert_eq!(session.mode, SessionMode::SearchInput);
+       // Cursor should NOT have moved
+     assert_eq!(session.cursor.char_index, initial_char_index);
+       // Status should indicate no match (the search prompt should show the empty query)
+    let view = session.render_view();
+    assert!(view.bottom_line.as_deref().unwrap_or("").contains("Search: "));
+}

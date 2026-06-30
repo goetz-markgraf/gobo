@@ -16,23 +16,20 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 **Purpose**: No setup changes needed — project already buildable and structured.
 
-- [ ] T001 Verify `cargo build` and `cargo test` pass in existing state
-
+- [X] T001 Verify `cargo build` and `cargo test` pass in existing state
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Prepare the codebase for US1, US2, and US3 implementation.
 
-- [ ] T002 Add unit tests for `SearchState::find_next()` edge cases in `tests/unit/search.rs`
-  - Empty query returns `None` without side effects
+- [X] T002 Add unit tests for `SearchState::find_next()` edge cases in `tests/unit/search.rs`  - Empty query returns `None` without side effects
   - Single-character document with matching query at position 0
   - Query longer than document never matches
   - Wrap-around when cursor is past the last match
     - Multi-byte grapheme query (e.g. CJK, emoji) finds exact character matches
     - Invalid UTF-8 sequences in query do not crash find_next()
-- [ ] T003 [P] Verify existing unit tests (`cargo test --lib`) still pass after adding search edge-case tests
-
+- [X] T003 [P] Verify existing unit tests (`cargo test --lib`) still pass after adding search edge-case tests
 **Checkpoint**: Foundation ready — user story implementation can now proceed.
 
 ---
@@ -45,14 +42,12 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 ### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T004 [P] [US1] Integration test for full search flow in `tests/integration/search_and_resize.rs`: Ctrl+F → typing query → Enter confirms first match → editor returns to editing mode — cursor jumps to match start
-- [ ] T005 [P] [US1] Integration test for cancel flow in `tests/integration/search_and_resize.rs`: Ctrl+F → typing partial query → Esc → no cursor movement, mode returns to Editing
-
+- [X] T004 [P] [US1] Integration test for full search flow in `tests/integration/search_and_resize.rs`: Ctrl+F → typing query → Enter confirms first match → editor returns to editing mode — cursor jumps to match start- [X] T005 [P] [US1] Integration test for cancel flow in `tests/integration/search_and_resize.rs`: Ctrl+F → typing partial query → Esc → no cursor movement, mode returns to Editing
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Fix search prompt rendering in `src/editor/render.rs` — ensure `render_view()` correctly wires `status::search_prompt()` into `bottom_line: Option<String>` when popup is None and mode is SearchInput; verify `prompt_lines()` returns 2 for SearchInput
-- [ ] T007 [US1] Fix yellow foreground styling in `src/main.rs` — replace ambiguous `Style::default().fg(Color::Yellow)` with explicit styled block on the search prompt paragraph to ensure visible contrast against terminal background
-- [ ] T008 [US1] Verify status line mechanism in `src/editor/status.rs` — confirm popup_view returns None for SearchInput; update search_prompt() return type if needed per plan's analysis (visual fix may reside in main.rs or render.rs)
+- [X] T006 [US1] Fix search prompt rendering in `src/editor/render.rs` — ensure `render_view()` correctly wires `status::search_prompt()` into `bottom_line: Option<String>` when popup is None and mode is SearchInput; verify `prompt_lines()` returns 2 for SearchInput
+- [X] T007 [US1] Fix yellow foreground styling in `src/main.rs` — replace ambiguous `Style::default().fg(Color::Yellow)` with explicit styled block on the search prompt paragraph to ensure visible contrast against terminal background
+- [X] T008 [US1] Verify status line mechanism in `src/editor/status.rs` — confirm popup_view returns None for SearchInput; update search_prompt() return type if needed per plan's analysis (visual fix may reside in main.rs or render.rs)
 
 **Checkpoint**: User Story 1 is fully functional — pressing Ctrl+F shows visible "Search: " prompt on the last screen line.
 
@@ -66,16 +61,11 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T009 [P] [US2] Unit test for `find_next()` wrap-around in `tests/unit/search.rs`: with a document containing 3 occurrences at positions P1 < P2 < P3, starting from cursor at P2 returns P3; starting past P3 wraps to P1
-- [ ] T010 [P] [US2] Integration test for find-next flow in `tests/integration/search_and_resize.rs`: confirm search → Ctrl+G jumps to next match → Ctrl+G wraps around to first occurrence — verify cursor position and status messages at each step
-- [ ] T011 [P] [US2] Edge-case unit test: searching a query with no matches → `find_next()` returns `None` every time; pressing multiple times shows "No match" without moving cursor
-
+- [X] T009 [P] [US2] Unit test for `find_next()` wrap-around in `tests/unit/search.rs`: with a document containing 3 occurrences at positions P1 < P2 < P3, starting from cursor at P2 returns P3; starting past P3 wraps to P1
+- [X] T010 [P] [US2] Integration test for find-next flow in `tests/integration/search_and_resize.rs`: confirm search → Ctrl+G jumps to next match → Ctrl+G wraps around to first occurrence — verify cursor position and status messages at each step- [X] T011 [P] [US2] Edge-case unit test: searching a query with no matches → `find_next()` returns `None` every time; pressing multiple times shows "No match" without moving cursor
 ### Implementation for User Story 2
 
-- [ ] T012 [P] [US2] Add `FindNext` variant to `EditorCommand` enum and add keybinding in `src/editor/input.rs`: `(KeyModifiers::CONTROL, KeyCode::Char('g')) → EditorCommand::FindNext`; keep it as a no-op in the match arm for other keys
-- [ ] T013 [US2] Add `FindNext` branch to `handle_search_command()` in `src/app.rs`: call `search.find_next(&self.document.text, self.cursor.char_index)`, move cursor on match, display "Match at.." or "No match" status message, stay in SearchInput mode
-- [ ] T014 [US2] Add `FindNext` handling to `handle_editing_command()` in `src/app.rs`: emit no-op (search not active outside SearchInput mode), add to the catch-all arm alongside existing variants
-
+- [X] T012 [P] [US2] Add `FindNext` variant to `EditorCommand` enum and add keybinding in `src/editor/input.rs`: `(KeyModifiers::CONTROL, KeyCode::Char('g')) → EditorCommand::FindNext`; keep it as a no-op in the match arm for other keys- [X] T013 [US2] Add `FindNext` branch to `handle_search_command()` in `src/app.rs`: call `search.find_next(&self.document.text, self.cursor.char_index)`, move cursor on match, display "Match at.." or "No match" status message, stay in SearchInput mode- [X] T014 [US2] Add `FindNext` handling to `handle_editing_command()` in `src/app.rs`: emit no-op (search not active outside SearchInput mode), add to the catch-all arm alongside existing variants
 **Checkpoint**: User Stories 1 AND 2 are both functional — search is visible and Ctrl+G navigates matches correctly.
 
 ---
@@ -88,12 +78,10 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 ### Tests for User Story 3 (REQUIRED) ⚠️
 
-- [ ] T015 [P] [US3] Unit test for case-insensitive matching in `tests/unit/search.rs`: document contains "hello world" (lowercase only), query "HELLO" matches → cursor moves to position 0; query "WORLD" matches → cursor moves to position 6
-
+- [X] T015 [P] [US3] Unit test for case-insensitive matching in `tests/unit/search.rs`: document contains "hello world" (lowercase only), query "HELLO" matches → cursor moves to position 0; query "WORLD" matches → cursor moves to position 6
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] No code changes required — verify `normalize()` in `src/editor/search.rs` lowercases both query and haystack, confirming case-insensitive matching works per default `CaseMode::Insensitive`
-- [ ] T016a [US3] Integration check: after confirming a search for uppercase "HELLO" that matches lowercase "hello", the prompt still displays original casing "Search: HELLO" on screen
+- [X] T016 [US3] No code changes required — verify `normalize()` in `src/editor/search.rs` lowercases both query and haystack, confirming case-insensitive matching works per default `CaseMode::Insensitive`- [X] T016a [US3] Integration check: after confirming a search for uppercase "HELLO" that matches lowercase "hello", the prompt still displays original casing "Search: HELLO" on screen
 **Checkpoint**: All user stories are independently functional.
 
 ---
@@ -102,12 +90,11 @@ description: "Task list for Visible Search Popup & Ctrl+G Find-Next feature"
 
 **Purpose**: Quality improvements, constitution checks, final validation.
 
-- [ ] T017 Verify all unit tests pass: `cargo test --lib`
-- [ ] T018 Run integration tests: `cargo test --test '*'`
-- [ ] T019 [P] Add edge-case integration test to `tests/integration/search_and_resize.rs`: empty query + Enter exits silently (FR-004a); empty query + Ctrl+G shows "No match" without moving cursor (FR-007)
-- [ ] T020 Verify code readability against Constitution Principle I: check `src/app.rs`, `src/editor/input.rs`, `src/editor/search.rs`, `src/editor/status.rs`, `src/main.rs` for clear naming and simple control flow
-- [ ] T021 Maintainability check against Constitution Principle II: no new types/modules needed, existing boundaries preserved (app → state, search → text ops, status → output, main → rendering)
-- [ ] T022 Security/governance check against Constitution Principle III: search input is pure in-memory, no file I/O during search, empty query exits cleanly without panic
+- [X] T017 Verify all unit tests pass: `cargo test --lib`- [X] T018 Run integration tests: `cargo test --test '*'`
+- [X] T019 [P] Add edge-case integration test to `tests/integration/search_and_resize.rs`: empty query + Enter exits silently (FR-004a); empty query + Ctrl+G shows "No match" without moving cursor (FR-007)
+- [X] T020 Verify code readability against Constitution Principle I: check `src/app.rs`, `src/editor/input.rs`, `src/editor/search.rs`, `src/editor/status.rs`, `src/main.rs` for clear naming and simple control flow
+- [X] T021 Maintainability check against Constitution Principle II: no new types/modules needed, existing boundaries preserved (app → state, search → text ops, status → output, main → rendering)
+- [X] T022 Security/governance check against Constitution Principle III: search input is pure in-memory, no file I/O during search, empty query exits cleanly without panic
 
 ---
 

@@ -143,6 +143,7 @@ impl EditingSession {
             EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
             | EditorCommand::Cancel
+             | EditorCommand::FindNext => {}
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -189,18 +190,38 @@ impl EditingSession {
                 self.mode = SessionMode::Editing;
             }
             EditorCommand::Quit => self.request_quit(),
+            EditorCommand::FindNext => {
+                if search.query.is_empty() {
+                    self.status = Some(StatusMessage::warning("No match"));
+                } else {
+                    let result = search.find_next(&self.document.text, self.cursor.char_index);
+                    match result {
+                        Some((start, end)) => {
+                            self.cursor.char_index = start;
+                            self.cursor.preferred_column = cursor::visual_column(
+                                &self.document.text, start,
+                            );
+                            self.status = Some(StatusMessage::info(
+                                format!("Match at {}..{}", start, end),
+                            ));
+                        }
+                        None => {
+                            self.status = Some(StatusMessage::warning("No match"));
+                        }
+                    }
+                }
+            }
             EditorCommand::MoveLeft
-            | EditorCommand::MoveRight
-            | EditorCommand::MoveUp
-            | EditorCommand::MoveDown
-            | EditorCommand::Delete
-            | EditorCommand::Save
-            | EditorCommand::Search
-            | EditorCommand::NextChoice
-            | EditorCommand::PreviousChoice
-            | EditorCommand::Resize(_) => {}
+              | EditorCommand::MoveRight
+              | EditorCommand::MoveUp
+              | EditorCommand::MoveDown
+              | EditorCommand::Delete
+              | EditorCommand::Save
+              | EditorCommand::Search
+              | EditorCommand::NextChoice
+              | EditorCommand::PreviousChoice
+              | EditorCommand::Resize(_) => {}
         }
-
         self.sync_viewport();
         Ok(())
     }
@@ -404,7 +425,7 @@ impl EditingSession {
         cursor::ensure_cursor_in_view(&self.document.text, &self.cursor, &mut self.viewport);
     }
 
-    fn prompt_lines(&self) -> u16 {
+    pub fn prompt_lines(&self) -> u16 {
         if self.mode == SessionMode::SearchInput {
             2
         } else {

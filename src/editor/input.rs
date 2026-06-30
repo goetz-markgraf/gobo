@@ -16,7 +16,8 @@ pub enum EditorCommand {
     Cancel,
     Enter,
     NextChoice,
-    PreviousChoice,
+PreviousChoice,
+    FindNext,
     Resize(TerminalSize),
 }
 
@@ -25,6 +26,7 @@ pub fn map_key_event(key: KeyEvent) -> Option<EditorCommand> {
         (KeyModifiers::CONTROL, KeyCode::Char('s')) => Some(EditorCommand::Save),
         (KeyModifiers::CONTROL, KeyCode::Char('q')) => Some(EditorCommand::Quit),
         (KeyModifiers::CONTROL, KeyCode::Char('f')) => Some(EditorCommand::Search),
+        (KeyModifiers::CONTROL, KeyCode::Char('g')) => Some(EditorCommand::FindNext),
         (_, KeyCode::Left) => Some(EditorCommand::MoveLeft),
         (_, KeyCode::Right) => Some(EditorCommand::MoveRight),
         (_, KeyCode::Up) => Some(EditorCommand::MoveUp),
