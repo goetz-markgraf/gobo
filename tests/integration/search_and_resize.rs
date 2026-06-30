@@ -231,3 +231,60 @@ fn ctrlg_with_empty_query_shows_no_match() {
     let view = session.render_view();
     assert!(view.bottom_line.as_deref().unwrap_or("").contains("Search: "));
 }
+
+// T023 (US2): Full integration flow for Ctrl-G — Enter to confirm, then Ctrl-G advances through matches
+#[test]
+fn ctrlg_full_flow_jumps_to_subsequent_matches() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("ctrlg-flow.txt");
+    std::fs::write(&path, "alpha\nbeta\nalpha\ngamma\nalpha\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    
+    // Enter search mode and type "alpha"
+    session.handle_command(EditorCommand::Search).unwrap();
+    for ch in "alpha".chars() {
+        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+    }
+
+    // Confirm search (Enter) — jumps to first match at char 0
+    session.handle_command(EditorCommand::Enter).unwrap();
+    assert_eq!(session.cursor.char_index, 0);
+
+    // Press Ctrl-G repeatedly — should advance through all "alpha" occurrences
+    session.handle_command(EditorCommand::FindNext).unwrap();
+    assert_eq!(session.cursor.char_index, 11, "Should advance to second occurrence");
+
+    // Press Ctrl-G again — should advance to the third occurrence
+    session.handle_command(EditorCommand::FindNext).unwrap();
+    assert_eq!(session.cursor.char_index, 23, "Should advance to third occurrence");
+
+    // Press Ctrl-G again — should wrap around and find the first match
+    session.handle_command(EditorCommand::FindNext).unwrap();
+    assert_eq!(session.cursor.char_index, 0, "Should have wrapped back to start");
+}
+
+// T024 (US2): Ctrl-G from editing mode with confirmed search should still work (query persists)
+#[test]
+fn findnext_from_editing_mode_with_active_query_jumps_next() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("findnext-edit-mode.txt");
+    std::fs::write(&path, "foo bar foo baz\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+
+    // Search for "foo", Enter to confirm first match at char 0
+    session.handle_command(EditorCommand::Search).unwrap();
+    for ch in "foo".chars() {
+        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+    }
+    session.handle_command(EditorCommand::Enter).unwrap();
+    
+    let initial_pos = session.cursor.char_index;
+    assert_eq!(initial_pos, 0);
+
+    // Now in editing mode. Press Ctrl-G — should still find next match
+    session.handle_command(EditorCommand::FindNext).unwrap();
+    assert!(session.cursor.char_index > initial_pos, "Should advance to second 'foo'");
+}
+

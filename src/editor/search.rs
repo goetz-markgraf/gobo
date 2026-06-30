@@ -29,58 +29,91 @@ impl Default for SearchState {
             last_match_char_range: None,
             last_result: SearchResultState::Idle,
         }
-    }
+      }
 }
 
 impl SearchState {
-    pub fn find_next(&mut self, text: &Rope, start_char_index: usize) -> Option<(usize, usize)> {
-        if self.query.is_empty() {
-            self.last_match_char_range = None;
-            self.last_result = SearchResultState::Idle;
-            return None;
-        }
+     pub fn find_next(&mut self, text: &Rope, start_char_index: usize) -> Option<(usize, usize)> {
+          if self.query.is_empty() {
+              self.last_match_char_range = None;
+              self.last_result = SearchResultState::Idle;
+              return None;
+            }
 
-        let haystack = text.to_string();
-        let haystack_cmp = normalize(&haystack, &self.case_mode);
-        let needle_cmp = normalize(&self.query, &self.case_mode);
-        let start_byte = char_to_byte_index(&haystack, start_char_index.min(text.len_chars()));
+          let haystack = text.to_string();
+          let haystack_cmp = normalize(&haystack, &self.case_mode);
+          let needle_cmp = normalize(&self.query, &self.case_mode);
 
-        let search_attempt = haystack_cmp[start_byte..]
-            .find(&needle_cmp)
-            .map(|offset| start_byte + offset)
-            .or_else(|| haystack_cmp[..start_byte].find(&needle_cmp));
+            // Collect ALL match byte positions in order first.
+          let mut all_matches: Vec<usize> = Vec::new();
+          let mut search_pos = 0usize;
+          while search_pos < haystack_cmp.len() {
+              let needle_len = needle_cmp.len();
+               if search_pos + needle_len > haystack_cmp.len() {
+                   break;
+                   }
 
-        if let Some(byte_start) = search_attempt {
-            let byte_end = byte_start + needle_cmp.len();
-            let char_start = haystack[..byte_start].chars().count();
-            let char_end = haystack[..byte_end].chars().count();
-            let range = (char_start, char_end);
-            self.last_match_char_range = Some(range);
-            self.last_result = SearchResultState::MatchFound;
-            Some(range)
-        } else {
-            self.last_match_char_range = None;
-            self.last_result = SearchResultState::NoMatch;
-            None
-        }
-    }
-}
+               if let Some(pos) = haystack_cmp[search_pos..].find(&needle_cmp) {
+                   let abs_pos = search_pos + pos;
+                    if abs_pos + needle_len > haystack_cmp.len() {
+                        break;
+                       }
+                   all_matches.push(abs_pos);
+                   search_pos = (abs_pos + needle_len).min(haystack_cmp.len());
+                   } else {
+                   break;
+                   }
+               }
 
-fn normalize(input: &str, case_mode: &CaseMode) -> String {
-    match case_mode {
-        CaseMode::Insensitive => input.to_lowercase(),
-        CaseMode::Sensitive => input.to_string(),
-    }
-}
+           if all_matches.is_empty() {
+               self.last_match_char_range = None;  
+               self.last_result = SearchResultState::NoMatch;
+               return None; 
+             }
 
-fn char_to_byte_index(input: &str, char_index: usize) -> usize {
-    if char_index == 0 {
-        return 0;
-    }
+            // Pick the match based on state from previous call.
+            // Compare in byte space for consistency: use the larger of
+            // (a) the byte position right after the last match's end, and
+            // (b) the byte position corresponding to the requested start char index.
+            // This advances past the last match for repeated Ctrl-G, but wraps
+            // to the first match when the caller requests a position past the end.
+          let last_end_byte = self.last_match_char_range
+              .map(|(_, end_char)| char_to_byte_index(&haystack, end_char.min(text.len_chars())))
+              .unwrap_or(0);
+          let start_byte = char_to_byte_index(&haystack, start_char_index.min(text.len_chars()));
+          let base = last_end_byte.max(start_byte);
 
-    input
-        .char_indices()
-        .nth(char_index)
-        .map(|(idx, _)| idx)
-        .unwrap_or_else(|| input.len())
-}
+              // Find first match starting at or after 'base'.
+              // If past all matches, wrap to first one.
+          let next_idx = all_matches.iter().position(|&m| m >= base)
+                                      .unwrap_or(0);
+
+           let byte_pos = *all_matches.get(next_idx).unwrap();
+           let byte_end = byte_pos + needle_cmp.len();
+
+            let cs = haystack[..byte_pos].chars().count();
+           let ce = haystack[..byte_end].chars().count();
+            self.last_match_char_range = Some((cs, ce));
+           self.last_result = SearchResultState::MatchFound;
+           return Some((cs, ce)); 
+         }
+     }
+
+     fn normalize(input: &str, case_mode: &CaseMode) -> String {
+          match case_mode {
+               CaseMode::Insensitive => input.to_lowercase(),
+               CaseMode::Sensitive => input.to_string(),
+              }
+          }
+
+     fn char_to_byte_index(input: &str, char_index: usize) -> usize {
+         if char_index == 0 {
+              return 0;
+             }
+
+          input
+                .char_indices()
+                .nth(char_index)
+                .map(|(idx, _)| idx)
+                .unwrap_or_else(|| input.len())
+         }  

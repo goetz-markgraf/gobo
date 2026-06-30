@@ -143,10 +143,36 @@ impl EditingSession {
             EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
             | EditorCommand::Cancel
-             | EditorCommand::FindNext => {}
+             | EditorCommand::FindNext => {},
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
+        }
+
+         // Handle FindNext from editing mode (cursor jumps to next search match)
+        if let EditorCommand::FindNext = command {
+            if let Some(ref mut search) = self.search {
+                match search.query.is_empty() {
+                    true => self.status = Some(StatusMessage::warning("No match")),
+                    false => match search.find_next(&self.document.text,  self.cursor.char_index) {
+                        Some((start, end)) => {
+                            self.cursor.char_index = start;
+                            self.cursor.preferred_column = cursor::visual_column(
+                                 &self.document.text, start
+                             );
+                            self.status = Some(StatusMessage::info(
+                                format!("Match at {}..{}", start, end),
+                             )
+);
+                         },
+                        None => {
+                            self.status = Some(StatusMessage::warning("No match"));
+                         }
+                    },
+                };
+            } else {
+                self.status = Some(StatusMessage::warning("No match"));
+            }
         }
 
         self.sync_viewport();

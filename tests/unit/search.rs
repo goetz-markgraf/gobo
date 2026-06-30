@@ -195,3 +195,33 @@ fn default_search_state_is_insensitive() {
     let search = SearchState::default();
     assert_eq!(search.case_mode, CaseMode::Insensitive);
 }
+
+// Debug test: What does find_next return after the cursor is already on a match?
+#[test] 
+fn find_next_after_cursor_at_first_match_finds_second() {
+    let text = Rope::from_str("alpha\nbeta\nalpha again\n");
+    let mut search = SearchState { query: "alpha".into(), ..SearchState::default() };
+    
+    // First call from position 0 - should find the first match, advancing cursor
+    let result1 = search.find_next(&text, 0); 
+    assert_eq!(result1, Some((0, 5)));  // first occurrence
+    
+    // Now simulate cursor being at position 0 (start of first match)
+    // Calling find_next again should find the NEXT occurrence
+    let result2 = search.find_next(&text, 0);  
+    // This is what currently happens: still returns Some((0,5)) 
+    // But for Ctrl-G to work, it should return Some((12, 17)) or similar (second "alpha" position)
+    println!("result1 = {:?}", result1);
+    println!("result2 = {:?}", result2);
+}
+
+#[test] 
+fn debug_find_next_behavior() {
+     let text = Rope::from_str("alpha\nbeta\nalpha\ngamma\nalpha\n");
+    let mut search = SearchState { query: "alpha".into(), ..SearchState::default() };
+     let r1 = search.find_next(&text, 0);
+    println!("find_next(0) = {:?}", r1);
+     let r2 = search.find_next(&text, 0);  
+    println!("find_next again (0) = {:?}", r2);
+
+}
