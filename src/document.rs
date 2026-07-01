@@ -77,7 +77,8 @@ impl DocumentBuffer {
 
         match fs::read(&path) {
             Ok(bytes) => {
-                let text = String::from_utf8(bytes).map_err(|_| DocumentError::InvalidUtf8(path.clone()))?;
+                let text = String::from_utf8(bytes)
+                    .map_err(|_| DocumentError::InvalidUtf8(path.clone()))?;
                 let metadata = fs::metadata(&path).map_err(|source| DocumentError::Io {
                     path: path.clone(),
                     source,
@@ -164,13 +165,24 @@ impl DocumentBuffer {
         Ok(snapshot_for_path(&self.path)? != self.disk_snapshot)
     }
 
+    /// Atomic file save: write to a temp file in the same directory, then
+    /// rename into place.  This prevents corruption if the process crashes
+    /// mid-write, because the old file remains intact until the rename.
     fn write_to_disk(&mut self) -> Result<(), DocumentError> {
         let mut output = String::new();
         for chunk in self.text.chunks() {
             output.push_str(chunk);
         }
 
-        fs::write(&self.path, output).map_err(|source| DocumentError::Io {
+        // Build a temp-path next to the target file in the same directory.
+        let temp_path = Self::temp_path(&self.path);
+        fs::write(&temp_path, &output).map_err(|source| DocumentError::Io {
+            path: temp_path.clone(),
+            source,
+        })?;
+
+        // Rename is atomic on the same filesystem (POSIX renameat2 / mv).
+        std::fs::rename(&temp_path, &self.path).map_err(|source| DocumentError::Io {
             path: self.path.clone(),
             source,
         })?;
@@ -180,6 +192,13 @@ impl DocumentBuffer {
         self.last_saved_at = Some(SystemTime::now());
         self.disk_snapshot = snapshot_for_path(&self.path)?;
         Ok(())
+    }
+
+    /// Returns a temp-file path in the same directory as `canonical`. */
+    fn temp_path(canonical: &Path) -> PathBuf {
+        let mut tmp = canonical.as_os_str().to_owned();
+        tmp.push(".tmp");
+        PathBuf::from(tmp)
     }
 }
 

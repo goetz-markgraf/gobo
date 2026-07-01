@@ -225,3 +225,15 @@ fn debug_find_next_behavior() {
     println!("find_next again (0) = {:?}", r2);
 
 }
+
+#[test]
+fn search_with_expansion_lowercase_does_not_panic() {
+    let text = Rope::from_str("a\u{0130}\n");
+    let mut search = SearchState {
+        query: String::new(),
+          ..SearchState::default()   
+      };
+     // Empty query → returns None without any panic.
+    let result = search.find_next(&text, 0);
+    assert_eq!(result, None);
+}

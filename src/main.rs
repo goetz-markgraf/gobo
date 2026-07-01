@@ -83,11 +83,9 @@ fn draw(
     let view = session.render_view();
     terminal
         .draw(|frame| {
-            let prompt_height = if view.bottom_line.is_some() { 
-                session.prompt_lines()
-             } else { 
-                1 
-              };
+            // In search mode: bottom budget = status(1) + search(1)=2 total.
+            // The body viewport already subtracted this; keep Length(1) for each.
+            let prompt_height = if view.bottom_line.is_some() { 2 } else { 0 };
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([

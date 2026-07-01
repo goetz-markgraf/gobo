@@ -29,91 +29,71 @@ impl Default for SearchState {
             last_match_char_range: None,
             last_result: SearchResultState::Idle,
         }
-      }
+    }
+}
+
+/// Lowercase a single character.
+fn lc(c: char) -> char {
+    c.to_lowercase().next().unwrap_or(c)
 }
 
 impl SearchState {
-     pub fn find_next(&mut self, text: &Rope, start_char_index: usize) -> Option<(usize, usize)> {
-          if self.query.is_empty() {
-              self.last_match_char_range = None;
-              self.last_result = SearchResultState::Idle;
-              return None;
+    /// Find the next match for `self.query` in `text`.
+    /// Searches entirely in character space to avoid byte-index panics when
+    /// lowercased strings differ in length from the original (e.g. İ → i + combining accent).
+    pub fn find_next(&mut self, text: &Rope, start_char_index: usize) -> Option<(usize, usize)> {
+        // Guard: empty query means "idle" state.
+        if self.query.is_empty() {
+            self.last_match_char_range = None;
+            self.last_result = SearchResultState::Idle;
+            return None;
+        }
+
+        // Convert rope to string — never slice with offsets from the lowered version.
+        let haystack_str = text.to_string();
+        let nchars: usize = haystack_str.chars().count();
+        let nlen: usize = self.query.chars().count();
+
+        // No match possible if needle longer than document.
+        if nlen == 0 || nchars < nlen {
+            self.last_match_char_range = None;
+            self.last_result = SearchResultState::NoMatch;
+            return None;
+        }
+
+        // Build lowered lookups — char arrays for O(1) access, safe to index.
+        let haystack_lc: Vec<char> = haystack_str.chars().map(lc).collect();
+        let needle_lc: Vec<char> = self.query.chars().map(lc).collect();
+
+        // Character-by-character search on LOWERED chars. No slicing — panic impossible!
+        let mut matches: Vec<(usize, usize)> = Vec::new();
+        for i in 0..=(haystack_lc.len() - nlen) {
+            if (0..nlen).all(|j| haystack_lc[i + j] == needle_lc[j]) {
+                matches.push((i, i + nlen));
             }
+        }
 
-          let haystack = text.to_string();
-          let haystack_cmp = normalize(&haystack, &self.case_mode);
-          let needle_cmp = normalize(&self.query, &self.case_mode);
+        // No match found.
+        if matches.is_empty() {
+            self.last_match_char_range = None;
+            self.last_result = SearchResultState::NoMatch;
+            return None;
+        }
 
-            // Collect ALL match byte positions in order first.
-          let mut all_matches: Vec<usize> = Vec::new();
-          let mut search_pos = 0usize;
-          while search_pos < haystack_cmp.len() {
-              let needle_len = needle_cmp.len();
-               if search_pos + needle_len > haystack_cmp.len() {
-                   break;
-                   }
+        // Select which match: advance past last end or wrap to first.
+        let base: usize = self.last_match_char_range
+            .map(|(_, e)| e.min(nchars))
+            .unwrap_or(0)
+            .max(start_char_index.min(nchars));
 
-               if let Some(pos) = haystack_cmp[search_pos..].find(&needle_cmp) {
-                   let abs_pos = search_pos + pos;
-                    if abs_pos + needle_len > haystack_cmp.len() {
-                        break;
-                       }
-                   all_matches.push(abs_pos);
-                   search_pos = (abs_pos + needle_len).min(haystack_cmp.len());
-                   } else {
-                   break;
-                   }
-               }
+        // First match at or after 'base'; wrap to first if none.
+        let next_idx = matches.iter()
+            .position(|&(s, _)| s >= base)
+            .unwrap_or(0);
 
-           if all_matches.is_empty() {
-               self.last_match_char_range = None;  
-               self.last_result = SearchResultState::NoMatch;
-               return None; 
-             }
-
-            // Pick the match based on state from previous call.
-            // Compare in byte space for consistency: use the larger of
-            // (a) the byte position right after the last match's end, and
-            // (b) the byte position corresponding to the requested start char index.
-            // This advances past the last match for repeated Ctrl-G, but wraps
-            // to the first match when the caller requests a position past the end.
-          let last_end_byte = self.last_match_char_range
-              .map(|(_, end_char)| char_to_byte_index(&haystack, end_char.min(text.len_chars())))
-              .unwrap_or(0);
-          let start_byte = char_to_byte_index(&haystack, start_char_index.min(text.len_chars()));
-          let base = last_end_byte.max(start_byte);
-
-              // Find first match starting at or after 'base'.
-              // If past all matches, wrap to first one.
-          let next_idx = all_matches.iter().position(|&m| m >= base)
-                                      .unwrap_or(0);
-
-           let byte_pos = *all_matches.get(next_idx).unwrap();
-           let byte_end = byte_pos + needle_cmp.len();
-
-            let cs = haystack[..byte_pos].chars().count();
-           let ce = haystack[..byte_end].chars().count();
-            self.last_match_char_range = Some((cs, ce));
-           self.last_result = SearchResultState::MatchFound;
-           return Some((cs, ce)); 
-         }
-     }
-
-     fn normalize(input: &str, case_mode: &CaseMode) -> String {
-          match case_mode {
-               CaseMode::Insensitive => input.to_lowercase(),
-               CaseMode::Sensitive => input.to_string(),
-              }
-          }
-
-     fn char_to_byte_index(input: &str, char_index: usize) -> usize {
-         if char_index == 0 {
-              return 0;
-             }
-
-          input
-                .char_indices()
-                .nth(char_index)
-                .map(|(idx, _)| idx)
-                .unwrap_or_else(|| input.len())
-         }  
+        let (match_start, match_end) = matches[next_idx];
+        self.last_match_char_range = Some((match_start, match_end));
+        self.last_result = SearchResultState::MatchFound;
+        Some((match_start, match_end))
+    }
+}
