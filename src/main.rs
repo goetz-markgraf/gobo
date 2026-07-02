@@ -11,6 +11,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use std::io::{self, stdout};
 use std::process::ExitCode;
@@ -87,6 +88,74 @@ fn draw(
     terminal.draw(|frame| paint(frame, &view)).map(|_| ())
 }
 
+/// Build the styled body text from `BodyLine`s, applying `Modifier::REVERSED`
+/// to each `HighlightSpan` (spec 007, FR-010). Styling lives in this layer,
+/// not in `render.rs` (constitution II boundary).
+#[allow(mismatched_lifetime_syntaxes)]
+fn format_body_lines(lines: &[gobo::editor::render::BodyLine]) -> ratatui::text::Text {
+    let reversed = Style::default().add_modifier(Modifier::REVERSED);
+    let normal = Style::default();
+    let out: Vec<Line> = lines
+        .iter()
+        .map(|line| {
+            if line.highlights.is_empty() {
+                return Line::from(Span::styled(line.text.clone(), normal));
+            }
+            // Render the line as spans: split at each highlight's column boundaries.
+            let spans = highlight_spans_to_spans(line, normal, reversed);
+            Line::from(spans)
+        })
+        .collect();
+    ratatui::text::Text::from(out)
+}
+
+/// Convert a `BodyLine`'s char string + visual-column highlight spans into a
+/// list of owned `Span`s, applying `reversed` style to the highlighted visual
+/// columns. Owning the span strings avoids tying their lifetime to the line.
+fn highlight_spans_to_spans(
+    line: &gobo::editor::render::BodyLine,
+    normal: Style,
+    reversed: Style,
+) -> Vec<Span<'static>> {
+    use unicode_segmentation::UnicodeSegmentation;
+    use unicode_width::UnicodeWidthStr;
+
+    // Collect each highlight as a (start, end) visual-column range.
+    let ranges: Vec<(usize, usize)> = line
+        .highlights
+        .iter()
+        .map(|h| (h.start_col, h.end_col))
+        .collect();
+
+    let graphemes: Vec<&str> = UnicodeSegmentation::graphemes(line.text.as_str(), true).collect();
+    let mut spans = Vec::new();
+    let mut col = 0usize;
+    let mut buf = String::new();
+    let mut buf_reversed = false; // style of the buffer currently being accumulated
+
+    let flush = |spans: &mut Vec<Span>, buf: &mut String, use_reversed: bool| {
+        if !buf.is_empty() {
+            let style = if use_reversed { reversed } else { normal };
+            spans.push(Span::styled(std::mem::take(buf), style));
+        }
+    };
+
+    for g in graphemes {
+        let gw = UnicodeWidthStr::width(g);
+        let in_highlight = ranges
+            .iter()
+            .any(|(s, e)| col + gw > *s && col < *e);
+        if in_highlight != buf_reversed {
+            flush(&mut spans, &mut buf, buf_reversed);
+            buf_reversed = in_highlight;
+        }
+        buf.push_str(g);
+        col += gw;
+    }
+    flush(&mut spans, &mut buf, buf_reversed);
+    spans
+}
+
 /// Pure widget layout + render for one frame. Separated from `draw` so the
 /// assembled frame can be tested headlessly with ratatui's `TestBackend`.
 fn paint(frame: &mut ratatui::Frame, view: &RenderView) {
@@ -107,7 +176,8 @@ fn paint(frame: &mut ratatui::Frame, view: &RenderView) {
     let search_idx = 1usize; // valid only when bottom_line is Some
 
     let body =
-        Paragraph::new(view.body_lines.join("\n")).block(Block::default().borders(Borders::NONE));
+        Paragraph::new(format_body_lines(&view.body_lines))
+            .block(Block::default().borders(Borders::NONE));
     frame.render_widget(body, chunks[body_idx]);
 
     if let Some(prompt_line) = &view.bottom_line {

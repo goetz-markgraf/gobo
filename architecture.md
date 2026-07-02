@@ -24,26 +24,29 @@ src/
 └── editor/          pure editor sub-modules (stateless functions where possible)
     ├── mod.rs
     ├── buffer.rs    Rope mutations: insert / remove / delete / replace_range; line helpers
-    ├── cursor.rs    CursorState + motion functions + viewport clamping
-    ├── input.rs     KeyEvent → EditorCommand mapping (key bindings table)
-    ├── render.rs    EditingSession → RenderView; viewport slicing, column clipping
+    ├── cursor.rs    CursorState + motion functions + viewport clamping + Selection type + MoveSelect* selection motions
+    ├── input.rs     KeyEvent → EditorCommand mapping (key bindings table; incl. Shift+arrows → MoveSelect*)
+    ├── render.rs    EditingSession → RenderView; viewport slicing, column clipping, selection highlight spans
     ├── search.rs    SearchState: case-insensitive find_next() with wrap-around
     ├── status.rs    StatusMessage → footer message, popup view construction
-    └── history.rs   Undo/Redo: History { undo, redo } + EditStep + record/undo/redo
+    └── history.rs   Undo/Redo: History { undo, redo } + EditStep (Insert/Delete/Replace) + record/undo/redo
 ```
 
 The `EditingSession` owns a `history: History` field (in-memory, session-bound,
-never persisted). Ctrl-Z dispatches `EditorCommand::Undo`, Ctrl-Y dispatches
-`EditorCommand::Redo`; both are wired in `handle_editing_command` and silently
-ignored in search/prompt modes. Every text mutation (`insert_text`, `backspace`,
-`delete`) records one `EditStep` via `history.record`, which clears the redo stack.
+never persisted) and a `selection: Option<Selection>` field (in-memory,
+session-bound, never persisted; FR-001/FR-013). Ctrl-Z dispatches
+`EditorCommand::Undo`, Ctrl-Y dispatches `EditorCommand::Redo`; both are wired
+in `handle_editing_command` and silently ignored in search/prompt modes. Every
+text mutation (`insert_text`, `backspace`, `delete`, and the selection-aware
+`replace_or_insert` / `delete_or_backspace` → `replace_selection`) records one
+`EditStep` via `history.record`, which clears the redo stack.
 
 ### Data Flow (Per Event Loop Tick)
 
 1. `crossterm::event::poll()` → `Event::Key` or `Event::Resize`
 2. `map_key_event(key)` → `Option<EditorCommand>` (or `Resize(TerminalSize)`)
 3. `session.handle_command(command)` → mutates session state
-4. `session.render_view()` → `RenderView` (body lines, footer line with filename + status message, optional popup/bottom-line)
+4. `session.render_view()` → `RenderView` (body lines as `BodyLine { text, highlights }` with optional `HighlightSpan`s, footer line with filename + status message, optional popup/bottom-line)
 5. `draw(terminal, &view)` → ratatui frame render + cursor position
 
 ## State Machine (`SessionMode`)
@@ -131,16 +134,17 @@ Each file groups tests by topic with a shared helper function at the top:
 - **Input mapping isolated in one place:** `editor/input.rs` is the single source of truth for key bindings
   (including Ctrl-Z → Undo, Ctrl-Y → Redo, placed before the printable-char catch-all so the `!CONTROL`
   guard prevents aliasing to `InsertChar('z')/'y')`)
-- **Render split across layers:** `editor/render.rs` produces a data struct (`RenderView`); actual widget rendering
-  with layout constraints lives in `main.rs::draw()` – two separate concerns
+- **Render split across layers:** `editor/render.rs` produces a data struct (`RenderView` with `BodyLine`/`HighlightSpan`); actual widget rendering with layout constraints and `Modifier::REVERSED` highlight styling lives in `main.rs::draw()` (spec 007) – two separate concerns
 
 ## Commands (`EditorCommand`)
 
-15 variants. Dispatched via match on `(KeyModifiers, KeyCode)`. Unmapped keys → `None` (ignored).
+19 variants. Dispatched via match on `(KeyModifiers, KeyCode)`. Unmapped keys → `None` (ignored).
 
 | Key | Command |
 |---|---|
 | Arrows | `MoveLeft/Right/Up/Down` |
+| Shift+Arrows | `MoveSelectLeft/Right/Up/Down` (seed/extend selection; spec 007) |
+| Ctrl-S | `Save` |
 | Ctrl-S | `Save` |
 | Ctrl-Q | `Quit` |
 | Ctrl-F | `Search` |

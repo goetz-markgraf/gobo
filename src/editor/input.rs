@@ -21,6 +21,10 @@ pub enum EditorCommand {
 PreviousChoice,
     FindNext,
     Resize(TerminalSize),
+    MoveSelectLeft,
+    MoveSelectRight,
+    MoveSelectUp,
+    MoveSelectDown,
 }
 
 pub fn map_key_event(key: KeyEvent) -> Option<EditorCommand> {
@@ -31,6 +35,10 @@ pub fn map_key_event(key: KeyEvent) -> Option<EditorCommand> {
         (KeyModifiers::CONTROL, KeyCode::Char('g')) => Some(EditorCommand::FindNext),
         (KeyModifiers::CONTROL, KeyCode::Char('z')) => Some(EditorCommand::Undo),
         (KeyModifiers::CONTROL, KeyCode::Char('y')) => Some(EditorCommand::Redo),
+        (KeyModifiers::SHIFT, KeyCode::Left) => Some(EditorCommand::MoveSelectLeft),
+        (KeyModifiers::SHIFT, KeyCode::Right) => Some(EditorCommand::MoveSelectRight),
+        (KeyModifiers::SHIFT, KeyCode::Up) => Some(EditorCommand::MoveSelectUp),
+        (KeyModifiers::SHIFT, KeyCode::Down) => Some(EditorCommand::MoveSelectDown),
         (_, KeyCode::Left) => Some(EditorCommand::MoveLeft),
         (_, KeyCode::Right) => Some(EditorCommand::MoveRight),
         (_, KeyCode::Up) => Some(EditorCommand::MoveUp),

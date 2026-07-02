@@ -1,4 +1,4 @@
-use gobo::editor::cursor::{char_index_for_visual_column, ensure_cursor_in_view, move_down, move_right, move_up, visual_column, CursorState};
+use gobo::editor::cursor::{char_index_for_visual_column, ensure_cursor_in_view, move_down, move_right, move_up, visual_column, CursorState, Selection, move_select_left, move_select_right, move_select_up, move_select_down};
 use gobo::editor::render::{TerminalSize, ViewportState};
 use ropey::Rope;
 
@@ -43,4 +43,129 @@ fn grapheme_width_is_used_for_visual_columns() {
     assert_eq!(visual_column(&text, 1), 1);
     assert_eq!(visual_column(&text, 2), 3);
     assert_eq!(char_index_for_visual_column(&text, 0, 3), 2);
+}
+
+// ---- Selection geometry (spec 007 T007) ----
+
+#[test]
+fn selection_range_is_min_max_half_open() {
+    let s = Selection { anchor: 2, head: 5 };
+    assert_eq!(s.range(), 2..5);
+    let reversed = Selection { anchor: 5, head: 2 };
+    assert_eq!(reversed.range(), 2..5);
+}
+
+#[test]
+fn selection_is_empty_when_anchor_equals_head() {
+    assert!(Selection { anchor: 3, head: 3 }.is_empty());
+    assert!(!Selection { anchor: 3, head: 4 }.is_empty());
+    assert!(!Selection { anchor: 4, head: 3 }.is_empty());
+}
+
+#[test]
+fn selection_is_forward_when_head_ge_anchor() {
+    assert!(Selection { anchor: 2, head: 5 }.is_forward());
+    assert!(Selection { anchor: 3, head: 3 }.is_forward());
+    assert!(!Selection { anchor: 5, head: 2 }.is_forward());
+}
+
+#[test]
+fn selection_default_is_empty_and_zero_range() {
+    let s = Selection::default();
+    assert_eq!(s.anchor, 0);
+    assert_eq!(s.head, 0);
+    assert!(s.is_empty());
+    assert_eq!(s.range(), 0..0);
+}
+
+// ---- MoveSelect* motions (spec 007 T011) ----
+
+#[test]
+fn move_select_seeds_anchor_on_first_move_then_fixes_it() {
+    let text = Rope::from_str("Hallo");
+    let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
+    let mut sel: Option<Selection> = None;
+
+    move_select_right(&mut sel, &mut cursor, &text);
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 3 }));
+    assert_eq!(cursor.char_index, 3);
+
+    // Anchor stays fixed; head advances.
+    move_select_right(&mut sel, &mut cursor, &text);
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 4 }));
+    assert_eq!(cursor.char_index, 4);
+}
+
+#[test]
+fn move_select_direction_flips_when_head_crosses_anchor() {
+    let text = Rope::from_str("Hallo");
+    let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
+    let mut sel: Option<Selection> = None;
+
+    move_select_left(&mut sel, &mut cursor, &text);
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 1 }));
+    assert!(!sel.unwrap().is_forward());
+
+    // Cross back to the right of the anchor -> forward again.
+    move_select_right(&mut sel, &mut cursor, &text);
+    move_select_right(&mut sel, &mut cursor, &text);
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 3 }));
+    assert!(sel.unwrap().is_forward());
+}
+
+#[test]
+fn move_select_can_shrink_to_empty_at_anchor() {
+    let text = Rope::from_str("Hallo");
+    let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
+    let mut sel: Option<Selection> = None;
+
+    move_select_right(&mut sel, &mut cursor, &text); // head 3
+    move_select_left(&mut sel, &mut cursor, &text); // head 2 -> empty
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 2 }));
+    assert!(sel.unwrap().is_empty());
+}
+
+// ---- MoveSelect* document-boundary clamping (spec 007 T012) ----
+
+#[test]
+fn move_select_left_at_doc_start_clamps_and_seeds_anchor() {
+    let text = Rope::from_str("Hallo");
+    let mut cursor = CursorState { char_index: 0, preferred_column: 0 };
+    let mut sel: Option<Selection> = None;
+    move_select_left(&mut sel, &mut cursor, &text);
+    assert_eq!(cursor.char_index, 0);
+    assert_eq!(sel, Some(Selection { anchor: 0, head: 0 }));
+}
+
+#[test]
+fn move_select_right_at_doc_end_clamps() {
+    let text = Rope::from_str("Hi");
+    let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
+    let mut sel: Option<Selection> = None;
+    move_select_right(&mut sel, &mut cursor, &text);
+    assert_eq!(cursor.char_index, 2);
+    assert_eq!(sel, Some(Selection { anchor: 2, head: 2 }));
+}
+
+#[test]
+fn move_select_up_at_top_line_clamps_keeps_column() {
+    let text = Rope::from_str("abc\ndefgh\n");
+    let mut cursor = CursorState { char_index: 1, preferred_column: 1 };
+    let mut sel: Option<Selection> = None;
+    move_select_up(&mut sel, &mut cursor, &text);
+    // Already on line 0; head stays.
+    assert_eq!(cursor.char_index, 1);
+    assert_eq!(sel, Some(Selection { anchor: 1, head: 1 }));
+}
+
+#[test]
+fn move_select_down_at_last_line_clamps() {
+    let text = Rope::from_str("abc\ndefgh");
+    // last line content "defgh" starts at char 4
+    let mut cursor = CursorState { char_index: 5, preferred_column: 1 };
+    let mut sel: Option<Selection> = None;
+    move_select_down(&mut sel, &mut cursor, &text);
+    // Already on the last line; head stays.
+    assert_eq!(cursor.char_index, 5);
+    assert_eq!(sel, Some(Selection { anchor: 5, head: 5 }));
 }

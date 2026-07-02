@@ -2,7 +2,7 @@
 
 use crate::document::{DocumentBuffer, DocumentError, SaveResult};
 use crate::editor::buffer;
-use crate::editor::cursor::{self, CursorState};
+use crate::editor::cursor::{self, CursorState, Selection};
 use crate::editor::input::EditorCommand;
 use crate::editor::render::{self, RenderView, TerminalSize, ViewportState};
 use crate::editor::search::SearchState;
@@ -64,6 +64,10 @@ pub struct EditingSession {
     /// Undo/redo history. Session-bound: in-memory only, never persisted,
     /// and initialized empty on every `new()`/`open()` (FR-008).
     pub history: History,
+    /// Active text selection, or `None` when no text is selected. Session-bound,
+    /// in-memory, never persisted. Seeded by `MoveSelect*`, cleared by plain
+    /// moves / edits / undo-redo (FR-001/FR-013).
+    pub selection: Option<Selection>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,6 +97,7 @@ impl EditingSession {
             pending_prompt: None,
             terminal_size,
             history: History::new(),
+            selection: None,
         };
         session.sync_viewport();
         if session.document.is_read_only() {
@@ -139,22 +144,53 @@ impl EditingSession {
 
     fn handle_editing_command(&mut self, command: EditorCommand) -> Result<(), DocumentError> {
         match command {
-            EditorCommand::InsertChar(c) => self.insert_text(&c.to_string()),
-            EditorCommand::Backspace => self.backspace(),
-            EditorCommand::Delete => self.delete(),
-            EditorCommand::MoveLeft => cursor::move_left(&mut self.cursor, &self.document.text),
-            EditorCommand::MoveRight => cursor::move_right(&mut self.cursor, &self.document.text),
-            EditorCommand::MoveUp => cursor::move_up(&mut self.cursor, &self.document.text),
-            EditorCommand::MoveDown => cursor::move_down(&mut self.cursor, &self.document.text),
+            EditorCommand::InsertChar(c) => self.replace_or_insert(&c.to_string()),
+            EditorCommand::Enter => self.replace_or_insert("\n"),
+            EditorCommand::Backspace => self.delete_or_backspace(false),
+            EditorCommand::Delete => self.delete_or_backspace(true),
+            EditorCommand::MoveSelectLeft => {
+                cursor::move_select_left(&mut self.selection, &mut self.cursor, &self.document.text)
+            }
+            EditorCommand::MoveSelectRight => cursor::move_select_right(
+                &mut self.selection,
+                &mut self.cursor,
+                &self.document.text,
+            ),
+            EditorCommand::MoveSelectUp => {
+                cursor::move_select_up(&mut self.selection, &mut self.cursor, &self.document.text)
+            }
+            EditorCommand::MoveSelectDown => cursor::move_select_down(
+                &mut self.selection,
+                &mut self.cursor,
+                &self.document.text,
+            ),
+            EditorCommand::MoveLeft => {
+                // FR-004: a plain move collapses any active selection before motion.
+                self.selection = None;
+                cursor::move_left(&mut self.cursor, &self.document.text);
+            }
+            EditorCommand::MoveRight => {
+                self.selection = None;
+                cursor::move_right(&mut self.cursor, &self.document.text);
+            }
+            EditorCommand::MoveUp => {
+                self.selection = None;
+                cursor::move_up(&mut self.cursor, &self.document.text);
+            }
+            EditorCommand::MoveDown => {
+                self.selection = None;
+                cursor::move_down(&mut self.cursor, &self.document.text);
+            }
             EditorCommand::Save => {
                 let _ = self.save_document(None)?;
             }
             EditorCommand::Quit => self.request_quit(),
-            EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
             EditorCommand::Cancel | EditorCommand::FindNext => {}
             EditorCommand::Undo => self.undo(),
             EditorCommand::Redo => self.redo(),
+            // FR-011: Search/FindNext/Save/Quit and non-editing commands preserve the
+            // selection; Undo/Redo clear it (see `undo`/`redo`).
             EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -250,6 +286,10 @@ impl EditingSession {
             | EditorCommand::MoveRight
             | EditorCommand::MoveUp
             | EditorCommand::MoveDown
+            | EditorCommand::MoveSelectLeft
+            | EditorCommand::MoveSelectRight
+            | EditorCommand::MoveSelectUp
+            | EditorCommand::MoveSelectDown
             | EditorCommand::Delete
             | EditorCommand::Save
             | EditorCommand::Search
@@ -319,6 +359,9 @@ impl EditingSession {
                         self.document.reload_from_disk()?;
                         self.cursor.char_index = 0;
                         self.cursor.preferred_column = 0;
+                        // FR-011: reload resets the cursor, so the selection is
+                        // cleared as part of the cursor reset (no split clusters).
+                        self.selection = None;
                         self.pending_prompt = None;
                         self.mode = if matches!(resume_action, Some(PromptAction::Quit)) {
                             SessionMode::Exiting
@@ -429,6 +472,75 @@ impl EditingSession {
         }
     }
 
+    /// Selection-aware insert path (FR-005/FR-007/FR-008). When a non-empty
+    /// selection exists, perform one atomic `EditStep::Replace` (removed = the
+    /// selected text, inserted = `text`), clear the selection, land the cursor
+    /// after the inserted text. Otherwise fall back to the existing `insert_text`
+    /// seam (FR-008). Read-only documents are blocked (constitution III).
+    fn replace_or_insert(&mut self, text: &str) {
+        if let Some(selection) = self.selection
+            && !selection.is_empty()
+        {
+            self.replace_selection(text);
+            return;
+        }
+        self.insert_text(text);
+    }
+
+    /// Selection-aware delete path for `Backspace` (`forward = false`) and
+    /// `Delete` (`forward = true`) (FR-006/FR-007/FR-008). When a non-empty
+    /// selection exists, both route to the same atomic delete-selection, landing
+    /// the cursor at the selection start. Otherwise fall back to the existing
+    /// single-char `backspace` / `delete` seams (FR-008).
+    fn delete_or_backspace(&mut self, _forward: bool) {
+        if let Some(selection) = self.selection
+            && !selection.is_empty()
+        {
+            self.replace_selection("");
+            return;
+        }
+        if _forward {
+            self.delete();
+        } else {
+            self.backspace();
+        }
+    }
+
+    /// Atomic replace of the active selection range with `inserted` (may be
+    /// empty for a pure delete). Records exactly one `EditStep::Replace`, clears
+    /// the selection, lands the cursor at `start + inserted.chars().count()`,
+    /// and marks the document dirty. Waits behind a read-only guard.
+    fn replace_selection(&mut self, inserted: &str) {
+        if self.document.is_read_only() {
+            self.status = Some(StatusMessage::warning("Read-only: edits are blocked"));
+            return;
+        }
+
+        let selection = self
+            .selection
+            .expect("replace_selection called only with a selection");
+        let range = selection.range();
+        let start = range.start;
+        let end = range.end;
+        // Capture the to-be-removed text before mutation.
+        let removed: String = self.document.text.slice(start..end).to_string();
+
+        let next_index = buffer::replace_range(&mut self.document.text, range, inserted);
+        self.cursor.char_index = next_index;
+        self.cursor.preferred_column = cursor::visual_column(&self.document.text, next_index);
+        self.document.mark_dirty();
+        // `removed` is non-empty by the `is_empty()` guard, so a `Replace` step is
+        // always recorded here (non-degeneracy, FR-008). `record` clears `redo`.
+        let step = crate::editor::history::EditStep::Replace {
+            index: start,
+            removed,
+            inserted: inserted.to_string(),
+        };
+        let outcome = self.history.record(step);
+        self.status = Some(history_status(outcome, "Replaced text"));
+        self.selection = None;
+    }
+
     fn begin_search(&mut self) {
         self.mode = SessionMode::SearchInput;
         self.search.get_or_insert_with(SearchState::default);
@@ -504,6 +616,8 @@ impl EditingSession {
             self.document.mark_dirty();
             self.status = Some(StatusMessage::info("Undo"));
         }
+        // FR-015: undo clears any active selection.
+        self.selection = None;
         self.sync_viewport();
     }
 
@@ -517,6 +631,8 @@ impl EditingSession {
             self.document.mark_dirty();
             self.status = Some(StatusMessage::info("Redo"));
         }
+        // FR-015: redo clears any active selection.
+        self.selection = None;
         self.sync_viewport();
     }
 

@@ -4,6 +4,45 @@ use ropey::Rope;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+// ---- Selection state (spec 007, FR-013 responsibility boundary) ------------
+// `cursor.rs` owns the `Selection` type and the `MoveSelect*` selection-motion
+// functions (FR-013). Text mutation lives in `buffer.rs`, undo steps in
+// `history.rs` (`EditStep::Replace`), dispatch in `app.rs`, and the highlight
+// projection in `render.rs`. Anchored to Gobo constitution I/II (readable,
+// clear module boundaries).
+
+/// A text selection: a fixed **anchor** (where the user first pressed
+/// Shift+Arrow) plus a moving **head** (the live cursor). All indices are
+/// character indices into the `Rope`, identical to the existing text model.
+/// Session-bound, in-memory, never persisted (FR-001/FR-013).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Selection {
+    /// Fixed char index where the selection started.
+    pub anchor: usize,
+    /// Moving char index of the live cursor end.
+    pub head: usize,
+}
+
+impl Selection {
+    /// Half-open char range actually covered: `[min(anchor, head), max(anchor, head))`.
+    /// Always safe for `Rope::remove` / `buffer::replace_range`.
+    pub fn range(self) -> std::ops::Range<usize> {
+        self.anchor.min(self.head)..self.anchor.max(self.head)
+    }
+
+    /// `true` iff `anchor == head` (no visible selection). Per FR-008 an empty
+    /// selection behaves as "no selection" for every edit command.
+    pub fn is_empty(self) -> bool {
+        self.anchor == self.head
+    }
+
+    /// `true` iff the head is at or past the anchor (forward selection).
+    /// Direction is derived, not stored, to avoid a third consistency field.
+    pub fn is_forward(self) -> bool {
+        self.head >= self.anchor
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct CursorState {
     pub char_index: usize,
@@ -96,4 +135,49 @@ pub fn char_index_for_visual_column(text: &Rope, line_index: usize, desired_colu
     }
 
     line_start + char_offset
+}
+
+// ---- Selection motions (spec 007, FR-001/FR-002/FR-003) --------------------
+// Each `move_select_*` seeds the anchor from the current cursor exactly once
+// (when `selection` transitions `None` -> `Some`), then reuses the matching
+// plain motion for the head movement, so document-boundary clamping and
+// grapheme-aware column preservation are identical to plain motion (FR-003).
+// The head may cross the anchor; direction flips naturally (FR-002).
+/// Shift+Left: seed anchor on first move, then move the head one char left.
+pub fn move_select_left(sel: &mut Option<Selection>, cursor: &mut CursorState, text: &Rope) {
+    seed_anchor(sel, cursor);
+    move_left(cursor, text);
+    sel.as_mut().expect("selection seeded").head = cursor.char_index;
+}
+
+/// Shift+Right: seed anchor on first move, then move the head one char right.
+pub fn move_select_right(sel: &mut Option<Selection>, cursor: &mut CursorState, text: &Rope) {
+    seed_anchor(sel, cursor);
+    move_right(cursor, text);
+    sel.as_mut().expect("selection seeded").head = cursor.char_index;
+}
+
+/// Shift+Up: seed anchor on first move, then move the head one line up.
+pub fn move_select_up(sel: &mut Option<Selection>, cursor: &mut CursorState, text: &Rope) {
+    seed_anchor(sel, cursor);
+    move_up(cursor, text);
+    sel.as_mut().expect("selection seeded").head = cursor.char_index;
+}
+
+/// Shift+Down: seed anchor on first move, then move the head one line down.
+pub fn move_select_down(sel: &mut Option<Selection>, cursor: &mut CursorState, text: &Rope) {
+    seed_anchor(sel, cursor);
+    move_down(cursor, text);
+    sel.as_mut().expect("selection seeded").head = cursor.char_index;
+}
+
+/// Seed the selection anchor from the current cursor when no selection exists.
+/// After this, `sel` is `Some` with `anchor == head == cursor.char_index`.
+fn seed_anchor(sel: &mut Option<Selection>, cursor: &CursorState) {
+    if sel.is_none() {
+        *sel = Some(Selection {
+            anchor: cursor.char_index,
+            head: cursor.char_index,
+        });
+    }
 }

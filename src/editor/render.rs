@@ -76,13 +76,30 @@ pub struct PopupView {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderView {
-    pub body_lines: Vec<String>,
+    pub body_lines: Vec<BodyLine>,
     pub footer_line: String, // bottom row: filename (left) + status message (right)
     pub bottom_line: Option<String>,
     // Overlay prompts render independently from the bottom-line status/search surfaces.
     pub popup: Option<PopupView>,
     pub cursor_x: u16,
     pub cursor_y: u16,
+}
+
+/// One visible body line plus its selection highlight spans (spec 007, FR-010).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BodyLine {
+    pub text: String,
+    /// Visual-column highlight spans (line-local, clipped to the viewport).
+    /// Empty when no selection intersects this line.
+    pub highlights: Vec<HighlightSpan>,
+}
+
+/// A run of highlighted visual columns within a single body line (spec 007).
+/// Geometry only — styling is applied in `main.rs::draw` (constitution II).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HighlightSpan {
+    pub start_col: usize,
+    pub end_col: usize,
 }
 
 /// Format the single footer row: the filename (CLI path) plus optional
@@ -165,15 +182,29 @@ pub fn render_view(session: &EditingSession) -> RenderView {
     let mut body_lines = Vec::new();
     let width = session.viewport.visible_width as usize;
     let height = session.viewport.visible_height as usize;
+    let left_column = session.viewport.left_column;
+    let sel = session.selection;
 
     for row in 0..height {
         let line_index = session.viewport.top_line + row;
         let line_text = buffer::line_content(&session.document.text, line_index);
-        body_lines.push(slice_visible_columns(
+        let line_str = slice_visible_columns(
             &line_text,
-            session.viewport.left_column,
+            left_column,
             width,
-        ));
+        );
+        let highlights = highlight_spans_for_line(
+            &session.document.text,
+            line_index,
+            &line_text,
+            sel,
+            left_column,
+            width,
+        );
+        body_lines.push(BodyLine {
+            text: line_str,
+            highlights,
+        });
     }
 
     let message = status::current_message(session);
@@ -204,6 +235,67 @@ pub fn render_view(session: &EditingSession) -> RenderView {
         cursor_x,
         cursor_y,
     }
+}
+
+/// Compute the visual-column highlight spans for one line given an optional
+/// selection (spec 007, FR-010). Returns an empty vector when there is no
+/// selection or the selection does not intersect the line's visible content.
+/// Spans are line-local visual columns, clipped to the visible viewport.
+fn highlight_spans_for_line(
+    text: &ropey::Rope,
+    line_index: usize,
+    line_text: &str,
+    sel: Option<crate::editor::cursor::Selection>,
+    left_column: usize,
+    width: usize,
+) -> Vec<HighlightSpan> {
+    if width == 0 {
+        return Vec::new();
+    }
+    let sel = match sel {
+        Some(s) if !s.is_empty() => s,
+        _ => return Vec::new(),
+    };
+
+    let range = sel.range();
+    let line_start = buffer::line_start_char(text, line_index);
+    let line_chars = line_text.chars().count();
+    // The line's visible content occupies char indices
+    // [line_start, line_start + line_chars) (excluding the trailing newline).
+    let line_end = line_start + line_chars;
+    if range.start >= line_end || range.end <= line_start {
+        return Vec::new();
+    }
+
+    // Clamp the selection intersection to the line's char range.
+    let intersection_start = range.start.max(line_start);
+    let intersection_end = range.end.min(line_end);
+    if intersection_start >= intersection_end {
+        return Vec::new();
+    }
+
+    // Map the char intersection to visual columns relative to the line start.
+    let prefix_start: String = line_text
+        .chars()
+        .take(intersection_start.saturating_sub(line_start))
+        .collect();
+    let col_start = unicode_width::UnicodeWidthStr::width(prefix_start.as_str());
+    let prefix_end: String = line_text
+        .chars()
+        .take(intersection_end.saturating_sub(line_start))
+        .collect();
+    let col_end = unicode_width::UnicodeWidthStr::width(prefix_end.as_str());
+
+    // Clip the single contiguous span to the visible viewport columns.
+    let vis_start = col_start.max(left_column);
+    let vis_end = col_end.min(left_column + width);
+    if vis_start >= vis_end {
+        return Vec::new();
+    }
+    vec![HighlightSpan {
+        start_col: vis_start - left_column,
+        end_col: vis_end - left_column,
+    }]
 }
 
 pub fn slice_visible_columns(line: &str, left_column: usize, width: usize) -> String {

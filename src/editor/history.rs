@@ -5,6 +5,13 @@
 //! owns a single [`History`] via [`crate::app::EditingSession`]; the stacks live
 //! only for the session and are never persisted to disk (FR-008).
 //!
+//! # Spec 007 boundary (FR-013)
+//
+//! `history.rs` owns the `EditStep` enum including the `Replace` variant
+//! (atomic delete-then-insert, one undo step for selection replace/delete).
+//! Selection state lives in `cursor.rs`, recording in `app.rs`, text mutation
+//! in `buffer.rs`. Anchored to Gobo constitution I/II.
+//!
 //! # Invariants
 //!
 //! - **Clear-redo-on-push**: [`History::record`] always empties `redo`. This is
@@ -35,44 +42,65 @@ pub enum EditStep {
     /// The char range `[index, index + text.chars().count())` was deleted.
     /// `text` holds the removed content. The cursor after the edit sat at `index`.
     Delete { index: usize, text: String },
+    /// Atomic delete-then-insert over the char range
+    /// `[index, index + removed.chars().count())` (FR-005/FR-006/FR-007).
+    /// `removed` holds the deleted content (non-empty by construction — a
+    /// replace over an empty selection falls back to `Insert`, FR-008);
+    /// `inserted` holds what replaced it (empty for a pure delete-selection).
+    Replace {
+        index: usize,
+        removed: String,
+        inserted: String,
+    },
 }
 
 impl EditStep {
-    /// Number of characters in the step's text.
+    /// Number of characters covered by the step's *removed* range.
+    /// For `Replace` this is `removed.chars().count()` (the deleted span);
+    /// `inserted` is tracked separately via `after_cursor`.
     pub fn len_chars(&self) -> usize {
         match self {
             EditStep::Insert { text, .. } | EditStep::Delete { text, .. } => text.chars().count(),
+            EditStep::Replace { removed, .. } => removed.chars().count(),
         }
     }
 
     /// End of the affected char range: for `Insert`, the post-insert cursor; for
-    /// `Delete`, the (exclusive) end of the removed range.
+    /// `Delete`, the (exclusive) end of the removed range; for `Replace`, the
+    /// (exclusive) end of the *removed* range.
     pub fn end_index(&self) -> usize {
         self.index() + self.len_chars()
     }
 
     /// Cursor index *before* the original edit.
     /// For `Insert` the cursor was at the insertion point (`index`);
-    /// for `Delete` the cursor sat at the end of the removed range, then moved to `index`.
+    /// for `Delete` the cursor sat at the end of the removed range, then moved to `index`;
+    /// for `Replace` the cursor sat at the selection start (`index`).
     pub fn before_cursor(&self) -> usize {
         match self {
             EditStep::Insert { index, .. } => *index,
             EditStep::Delete { .. } => self.end_index(),
+            EditStep::Replace { index, .. } => *index,
         }
     }
 
     /// Cursor index *after* the original edit.
-    /// For `Insert`: `index + len_chars`; for `Delete`: `index`.
+    /// For `Insert`: `index + len_chars`; for `Delete`: `index`;
+    /// for `Replace`: `index + inserted.chars().count()` (cursor after the typed
+    /// text; equals `index` when `inserted` is empty, matching FR-006).
     pub fn after_cursor(&self) -> usize {
         match self {
             EditStep::Insert { .. } => self.end_index(),
             EditStep::Delete { index, .. } => *index,
+            EditStep::Replace { index, inserted, .. } => *index + inserted.chars().count(),
         }
     }
 
     fn index(&self) -> usize {
         match self {
-            EditStep::Insert { index, .. } | EditStep::Delete { index, .. } => *index,
+            EditStep::Insert { index, .. }
+            | EditStep::Delete { index, .. }
+            | EditStep::Replace { index, .. } => *index,
         }
     }
 
@@ -82,6 +110,11 @@ impl EditStep {
         match self {
             EditStep::Insert { text: s, .. } => text.insert(index, s),
             EditStep::Delete { .. } => text.remove(index..self.end_index()),
+            EditStep::Replace { removed, inserted, .. } => {
+                let end = index + removed.chars().count();
+                text.remove(index..end);
+                text.insert(index, inserted);
+            }
         }
     }
 
@@ -91,6 +124,11 @@ impl EditStep {
         match self {
             EditStep::Insert { .. } => text.remove(index..self.end_index()),
             EditStep::Delete { text: s, .. } => text.insert(index, s),
+            EditStep::Replace { removed, inserted, .. } => {
+                let end = index + inserted.chars().count();
+                text.remove(index..end);
+                text.insert(index, removed);
+            }
         }
     }
 }

@@ -135,3 +135,76 @@ fn non_ready_message_appears_on_right() {
     );
     assert_eq!(UnicodeWidthStr::width(footer.as_str()), 80);
 }
+
+// ---- Selection highlight projection (spec 007 T013) ----
+
+use gobo::app::EditingSession;
+use gobo::editor::cursor::Selection;
+use gobo::editor::render::{HighlightSpan, TerminalSize};
+
+#[test]
+fn render_view_emits_highlight_spans_for_visible_selection() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hl.txt");
+    std::fs::write(&path, "Hallo Welt\n").unwrap();
+    std::mem::forget(dir);
+    let mut session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
+    // Select "llo" -> chars [2,5) on line 0.
+    session.selection = Some(Selection { anchor: 2, head: 5 });
+
+    let view = session.render_view();
+    assert!(!view.body_lines.is_empty());
+    assert_eq!(
+        view.body_lines[0].highlights,
+        vec![HighlightSpan { start_col: 2, end_col: 5 }]
+    );
+    // Other visible lines have no highlights.
+    for line in view.body_lines.iter().skip(1) {
+        assert!(line.highlights.is_empty(), "unexpected highlight: {:?}", line.highlights);
+    }
+}
+
+#[test]
+fn render_view_selection_backward_maps_to_same_forward_span() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hl2.txt");
+    std::fs::write(&path, "abcdef\n").unwrap();
+    std::mem::forget(dir);
+    let mut session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
+    // Backward selection over [1,4).
+    session.selection = Some(Selection { anchor: 4, head: 1 });
+
+    let view = session.render_view();
+    assert_eq!(
+        view.body_lines[0].highlights,
+        vec![HighlightSpan { start_col: 1, end_col: 4 }]
+    );
+}
+
+#[test]
+fn render_view_no_selection_means_empty_highlights() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hl3.txt");
+    std::fs::write(&path, "abc\n").unwrap();
+    std::mem::forget(dir);
+    let session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
+
+    let view = session.render_view();
+    for line in &view.body_lines {
+        assert!(line.highlights.is_empty());
+    }
+}
+
+#[test]
+fn render_view_empty_selection_emits_no_highlight() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("hl4.txt");
+    std::fs::write(&path, "abcdef\n").unwrap();
+    std::mem::forget(dir);
+    let mut session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
+    // Empty selection (anchor == head) -> no highlight (FR-008).
+    session.selection = Some(Selection { anchor: 2, head: 2 });
+
+    let view = session.render_view();
+    assert!(view.body_lines[0].highlights.is_empty());
+}

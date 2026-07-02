@@ -125,8 +125,8 @@ fn empty_and_very_long_lines_render_without_crashing() {
     let view = session.render_view();
 
     assert_eq!(view.body_lines.len(), 4);
-    assert_eq!(view.body_lines[0], "");
-    assert_eq!(view.body_lines[1].len(), 20);
+    assert_eq!(view.body_lines[0].text, "");
+    assert_eq!(view.body_lines[1].text.len(), 20);
 }
 
 // T004: Integration test for full search flow (US1)

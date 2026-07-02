@@ -57,3 +57,7 @@ path = "tests/unit/render.rs"
 [[test]]
 name = "unit_history"
 path = "tests/unit/history.rs"
+
+[[test]]
+name = "integration_text_selection"
+path = "tests/integration/text_selection.rs"

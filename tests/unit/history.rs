@@ -204,12 +204,115 @@ fn assert_eq_or_none<T: PartialEq + std::fmt::Debug>(actual: Option<T>, _none_ma
 
 fn step_index(s: &EditStep) -> usize {
     match s {
-        EditStep::Insert { index, .. } | EditStep::Delete { index, .. } => *index,
+        EditStep::Insert { index, .. }
+        | EditStep::Delete { index, .. }
+        | EditStep::Replace { index, .. } => *index,
     }
 }
 
 fn step_text(s: &EditStep) -> &str {
     match s {
         EditStep::Insert { text, .. } | EditStep::Delete { text, .. } => text.as_str(),
+        // For Replace the forward diff inserts `inserted` (and removes `removed`);
+        // the determinism helper only uses `ins`, so this arm is unreachable there.
+        EditStep::Replace { inserted, .. } => inserted.as_str(),
     }
+}
+
+// ---- EditStep::Replace (spec 007 T008) ----
+
+/// Build a Replace step: delete `removed` then insert `inserted` at `index`.
+fn rep(index: usize, removed: &str, inserted: &str) -> EditStep {
+    EditStep::Replace {
+        index,
+        removed: removed.to_string(),
+        inserted: inserted.to_string(),
+    }
+}
+
+#[test]
+fn replace_before_and_after_cursor_helpers() {
+    let step = rep(2, "llo", "x");
+    assert_eq!(step.len_chars(), 3); // removed length
+    assert_eq!(step.end_index(), 5);
+    assert_eq!(step.before_cursor(), 2); // selection start
+    assert_eq!(step.after_cursor(), 3); // index + inserted.chars().count()
+}
+
+#[test]
+fn replace_after_cursor_is_index_when_inserted_empty() {
+    let step = rep(2, "llo", "");
+    assert_eq!(step.after_cursor(), 2); // FR-006 cursor at selection start
+    assert_eq!(step.len_chars(), 3);
+}
+
+#[test]
+fn replace_apply_forward_then_reverse_restores_rope() {
+    let mut h = History::new();
+    h.record(rep(2, "llo", "x"));
+    // original text was "Hallo"; after forward edit -> "Hax"
+    let mut text = Rope::from_str("Hax");
+
+    // undo: remove "x" then insert "llo" -> "Hallo"
+    let c = h.undo(&mut text).unwrap();
+    assert_eq!(c, 2); // before_cursor = selection start
+    assert_eq!(text.to_string(), "Hallo");
+
+    // redo: remove "llo" then insert "x" -> "Hax"
+    let c = h.redo(&mut text).unwrap();
+    assert_eq!(c, 3); // after_cursor = 2 + 1
+    assert_eq!(text.to_string(), "Hax");
+}
+
+#[test]
+fn replace_undo_then_redo_is_round_trip_identity_on_rope() {
+    let mut h = History::new();
+    h.record(rep(0, "ab", "xyz"));
+    let mut text = Rope::from_str("xyz");
+    let before = text.clone();
+
+    let u = h.undo(&mut text).unwrap();
+    let r = h.redo(&mut text).unwrap();
+    assert_eq!(u, 0);
+    assert_eq!(r, 3);
+    assert_eq!(text.to_string(), before.to_string());
+    assert_eq!(h.undo.len(), 1);
+    assert!(h.redo.is_empty());
+}
+
+#[test]
+fn replace_records_and_clears_redo() {
+    let mut h = History::new();
+    let mut text = Rope::from_str("Hallo");
+    h.record(rep(0, "H", "h"));
+    assert_eq!(h.undo.len(), 1);
+    assert!(h.redo.is_empty());
+
+    // Build a redo by undoing once (applied to rope too).
+    assert_eq!(h.undo(&mut text), Some(0));
+    assert_eq!(text.to_string(), "Hallo");
+    assert_eq!(h.redo.len(), 1);
+
+    // A new record must clear redo.
+    let mut text2 = Rope::from_str("Hallo");
+    text2.insert(0, "z");
+    let outcome = h.record(rep(0, "H", "z"));
+    assert_eq!(outcome, RecordOutcome { oldest_dropped: false });
+    assert!(h.redo.is_empty());
+    assert_eq!(h.undo.len(), 1);
+    assert_eq!(h.undo[0], rep(0, "H", "z"));
+}
+
+#[test]
+fn replace_with_multiline_removed_restores_verbatim() {
+    let mut h = History::new();
+    // removed spans chars [2,8) = "llo\nWo", inserted "X".
+    h.record(rep(2, "llo\nWo", "X"));
+    let mut text = Rope::from_str("HeXrld");
+    let c = h.undo(&mut text).unwrap();
+    assert_eq!(c, 2);
+    assert_eq!(text.to_string(), "Hello\nWorld");
+    let c = h.redo(&mut text).unwrap();
+    assert_eq!(c, 3);
+    assert_eq!(text.to_string(), "HeXrld");
 }
