@@ -36,7 +36,7 @@ Add a dedicated footer row at the bottom of the screen displaying the current fi
 
 **Storage**: None (pure in-memory projection from existing `document.path`)
 
-**Testing**: Integration tests in `tests/integration/` driven by `cargo test`. Two files need minor assertion updates (`unsaved_guards.rs`, `search_and_resize.rs`).
+**Testing**: Unit tests in `tests/unit/render.rs` for `format_footer_line` (clean/dirty, relative & absolute paths, truncation, narrow terminals, message dropped, empty path, non-`Ready` messages). Integration tests in `tests/integration/{open_and_save,unsaved_guards,search_and_resize}.rs` assert the footer via `render_view()` and via the headless `paint` tests in `main.rs`.
 
 **Target Platform**: macOS / Linux / BSD terminal emulators
 
@@ -46,11 +46,11 @@ Add a dedicated footer row at the bottom of the screen displaying the current fi
 
 ## Constitution Check
 
-- **Readability Gate**: The change adds one new field (`footer_line: String`) to the existing `RenderView` struct and one helper function (`format_footer_line`). Rendering logic in `main.rs::draw()` gains one additional layout chunk + one `Paragraph` widget. All additions are localized and follow existing patterns.
-- **Maintainability Gate**: Clear boundary — `render.rs` owns projection of session data into `RenderView`; `status.rs` owns status-line formatting; `main.rs` owns the draw/layout layer. The footer line is derived from `document.path` + `document.dirty`, both already present on the session. No cross-cutting concerns introduced.
+- **Readability Gate**: The change replaces the prior two-row footer/status design with a single `footer_line: String` field on `RenderView` and one helper `format_footer_line` (plus `truncate_left`). `format_status_line` is removed entirely — there is no status-line row any more. `main.rs::paint` renders only body, the optional search prompt, and the footer. A reviewer reading `render.rs` / `main.rs` in isolation sees the single-row design with no leftover two-row references.
+- **Maintainability Gate**: Clear boundary — `render.rs` projects session state into `RenderView`; `status.rs` owns the status *message* (`current_message`); `main.rs` owns the draw/layout layer. The footer is derived solely from `document.path` + `document.dirty` + the status message, all already present. No cross-cutting concerns introduced.
 - **Security Gate**: No file I/O or security-sensitive changes. Footer merely displays the path string passed at open time.
-- **Verification Gate**: All existing integration tests updated to match new `RenderView` shape and content. New assertions verify footer presence, dirty marker appearance/disappearance, and correct layout heights under SearchInput mode. Full compile + test gate via `cargo test`.
-- **Scope Gate**: Purely cosmetic UI addition within the single-file editor scope. No constitutional exception required.
+- **Verification Gate**: Existing integration tests updated from `status_line` to `footer_line`; new unit tests cover `format_footer_line` edge cases (truncation, narrow terminals, message-drop, empty path, absolute paths, non-`Ready` messages); `main.rs` headless `paint` tests assert the bottom row carries filename left + message right in both normal and SearchInput modes. Full compile + test gate via `cargo test`.
+- **Scope Gate**: Purely cosmetic UI change within the single-file editor scope. Simpler than the prior two-row design. No constitutional exception required.
 
 ## Project Structure
 
@@ -58,196 +58,169 @@ Add a dedicated footer row at the bottom of the screen displaying the current fi
 
 ```text
 src/
-├── main.rs                # draw(): add footer chunk + Paragraph widget; layout constraint update
-├── app.rs                 # prompt_lines(): +1 for footer row in viewport calc
+├── main.rs                # paint(): dynamic constraints — body | [search-prompt] | footer; footer styled reversed-colors (Black on White)
+├── app.rs                 # prompt_lines(): 1 (Editing) / 2 (SearchInput) — footer always counts
 ├── lib.rs                 # No changes
 ├── cli.rs                 # No changes (per spec)
-├── document.rs            # No changes (per spec)
+├── document.rs            # No changes (per spec); document.path stays non-canonicalized
 └── editor/
      ├── mod.rs             # No changes
-     └── render.rs          # Add footer_line field to RenderView + format_footer_line() helper
-     └── status.rs          # Remove path/dirty from status_line; add footer dirty marker logic
+     ├── render.rs          # RenderView { body_lines, footer_line, bottom_line, popup, cursor_x/y } (status_line removed); format_footer_line() + truncate_left() helpers
+     └── status.rs          # status_line removed; current_message() returns the status text or "Ready"
 
-tests/integration/
-├── unsaved_guards.rs      # Update assertion: .status_line no longer contains filename
-└── search_and_resize.rs   # Layout height checks still valid (prompt_lines shifted by +1)
+tests/
+├── unit/render.rs        # format_footer_line edge cases (incl. absolute path + non-Ready message)
+└── integration/
+     ├── open_and_save.rs    # footer dirty marker appears/disappears; relative path verbatim
+     ├── unsaved_guards.rs   # footer dirty marker + left-truncation while prompted
+     └── search_and_resize.rs# footer carries non-"Ready" message after search; SearchInput layout body|prompt|footer
 ```
 
 ## Detailed Design
 
+The sections below describe the **implemented single-row design** (per the 2026-07-02
+revision). The original two-row design is no longer pursued.
+
 ### 1. Viewport Budget Adjustment (`app.rs`)
 
-**Current**: `prompt_lines()` returns 2 during `SearchInput` mode, 1 otherwise. The value is consumed by `ViewportState::update_for_terminal(size, prompt_lines)` as the number of non-body lines to subtract from total height.
-
-**Change**: Bump return values by +1 to account for the always-visible footer row:
+`prompt_lines()` returns the number of non-body lines subtracted from total height by
+`ViewportState::update_for_terminal`. The footer counts as one always-present row; the
+search prompt adds one more row only while in `SearchInput`. There is no status-line row.
 
 ```rust
 pub fn prompt_lines(&self) -> u16 {
-    // 1 (status) + N (search prompt if active) + 1 (footer)
     match self.mode == SessionMode::SearchInput {
-        true => 3,   // status + search-prompt + footer
-        false => 2,  // status + footer
+        true => 2,  // search-prompt + footer
+        false => 1, // footer only
     }
 }
 ```
 
-This ensures `viewport.visible_height` correctly reduces body area by the extra row.
+### 2. Footer field on `RenderView` (`editor/render.rs`)
 
-### 2. New Footer Field on `RenderView` (`editor/render.rs`)
-
-**Change**: Add `footer_line: String` to `RenderView` and populate it via a new helper function.
+`RenderView` carries `footer_line: String` instead of the former `status_line`. It is
+produced by `format_footer_line`, which lays out the filename (+ optional ` (*)`) on the
+LEFT and the status message on the RIGHT, padded to `terminal_width`:
 
 ```rust
 pub struct RenderView {
     pub body_lines: Vec<String>,
-    pub status_line: String,
-    pub footer_line: String,        // NEW: always-present filename footer
-    pub bottom_line: Option<String>, // unchanged: search prompt only in SearchInput
+    pub footer_line: String,         // filename (left) + status message (right), padded to width
+    pub bottom_line: Option<String>, // search prompt, only in SearchInput
     pub popup: Option<PopupView>,
     pub cursor_x: u16,
     pub cursor_y: u16,
 }
-```
 
-New helper:
-```rust
-/// Format the footer line: right-aligned filename with optional (*) dirty marker.
-/// If the path exceeds terminal width, truncate from the left with "..." prefix.
-pub fn format_footer_line(path: &str, dirty: bool, terminal_width: u16) -> String {
-    let label = if dirty {
-        format!("{} (*)", path)
-    } else {
-        path.to_string()
-    };
-
-    let label_width = unicode_width::UnicodeWidthStr::width(&label);
-    let text = if label_width as u16 > terminal_width {
-        // Truncate from left with "..." prefix, keep dirty marker intact
-        let available = terminal_width.saturating_sub(3).saturating_sub(4); // "..." + " (*)"
-        let trimmed_label = if dirty {
-            // Strip " (*)" suffix for truncation math, re-add after
-            let path_part = label.trim_end_matches(" (*)");
-            truncate_left(path_part, available as usize) + " (*)"
-        } else {
-            truncate_left(&label, available as usize)
-        };
-        trimmed_label
-    } else {
-        label
-    };
-
-    // Right-align: pad left with spaces
-    let text_width = unicode_width::UnicodeWidthStr::width(&text);
-    let padding = terminal_width.saturating_sub(text_width as u16) as usize;
-    format!("{}{}", " ".repeat(padding), text)
-}
-
-fn truncate_left(s: &str, max_grapheme_width: usize) -> String {
-    let mut result = String::new();
-    let mut current_width = 0;
-    for grapheme in s.graphemes(true) {
-        let gw = unicode_width::UnicodeWidthStr::width(grapheme);
-        if current_width + gw > max_grapheme_width {
-            break;
-        }
-        result.push_str(grapheme);
-        current_width += gw;
+/// One footer row: filename (+ optional ` (*)`) on the LEFT, status `message` on the
+/// RIGHT, padded to `terminal_width`. Long names truncate from the left with `...`;
+/// the message is dropped first when space is tight. Spec 005 FR-001 / FR-003.
+pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width: u16) -> String {
+    let name = if dirty { format!("{} (*)", path) } else { path.to_string() };
+    let width = terminal_width as usize;
+    let name_width = UnicodeWidthStr::width(name.as_str());
+    if name_width >= width {
+        return truncate_name(&name, terminal_width, dirty);
     }
-    format!("...{}", result)
+    let msg_width = UnicodeWidthStr::width(message);
+    let gap_width = width - name_width;
+    if msg_width < gap_width {
+        let pad = gap_width - msg_width;
+        return format!("{}{}{}", name, " ".repeat(pad), message);
+    }
+    // Message won't fit beside the name: keep the name, pad the rest with spaces.
+    if name_width <= width {
+        return format!("{}{}", name, " ".repeat(gap_width));
+    }
+    truncate_name(&name, terminal_width, dirty)
 }
 ```
 
-In `render_view()`, add after existing fields:
+`truncate_name` peels off the ` (*)` suffix when present so the dirty marker survives
+truncation; `truncate_left` walks graphemes from the right and prepends `...`.
+
+In `render_view()`, the footer is sourced from the already-stored, non-canonicalized CLI
+path plus the current status message:
+
 ```rust
+let message = status::current_message(session);
 let footer_line = format_footer_line(
     session.document.path.display().to_string().as_str(),
     session.document.dirty,
+    &message,
     session.terminal_size.width,
 );
 ```
 
-Include `footer_line` in the returned `RenderView`.
+### 3. Status message helper (`editor/status.rs`)
 
-### 3. Status Line Cleanup (`editor/status.rs`)
+`format_status_line` is removed. Its only remaining responsibility is the status message
+itself, surfaced via `current_message`, which returns `session.status` text or `"Ready"`:
 
-**Change**: Remove path and dirty state from the status line (they move to the footer). Keep access mode, editing mode, and current status message.
-
-**Before**:
 ```rust
-// "path | EDIT | DIRTY | editing | Ready"
-format!("{} | {} | {} | {} | {}", path, access, dirty, mode, message)
-```
-
-**After**:
-```rust
-// "EDIT | editing | Ready"  (access | mode | message — no path, no dirty)
-format!("{} | {} | {}", access, mode, message)
-```
-
-This eliminates duplication between status line and footer. Access mode remains relevant (read-only is a file property shown alongside the filename context). Dirtiness moves exclusively to the footer `(*)`.
-
-### 4. Draw Layout Expansion (`main.rs`)
-
-**Current layout constraints**:
-```rust
-let prompt_height = if view.bottom_line.is_some() { 2 } else { 0 };
-let chunks = Layout::default().direction(Direction::Vertical)
-    .constraints([Min(1), Length(1), Length(prompt_height)])
-    .split(frame.area());
-// chunks[0] = body, [1] = status line, [2] = bottom_line (optional search prompt)
-```
-
-**After**:
-```rust
-let mut constraints: Vec<Constraint> = vec![
-    Constraint::Min(1),   // body
-    Constraint::Length(1), // status line
-];
-if view.bottom_line.is_some() {
-    constraints.push(Constraint::Length(1)); // search prompt
+pub fn current_message(session: &EditingSession) -> String {
+    session.status.as_ref().map(|s| s.text.clone()).unwrap_or_else(|| "Ready".to_string())
 }
-constraints.push(Constraint::Length(1)); // footer (always)
-
-let chunks = Layout::default().direction(Direction::Vertical).constraints(constraints).split(frame.area());
-
-// Render sequence: body (0), status (1), [search prompt (2)], footer (last index)
-let footer_index = chunks.len() - 1;
-// ... render body at chunks[0], status at chunks[1], search-prompt at chunks[2] if present
-// Footer is the last chunk — always rendered:
-let footer = Paragraph::new(view.footer_line.clone())
-    .style(Style::default().fg(Color::White).bg(Color::Black))
-    .alignment(Alignment::Right)
-    .block(Block::default().borders(Borders::TOP));
-frame.render_widget(footer, chunks[footer_index]);
 ```
 
-The footer renders with a `Borders::TOP` separator (matching the status line's existing style) and uses ratatui's `Alignment::Right` for right-alignment fallback. The helper `format_footer_line()` already produces right-padded text, so both approaches compose correctly.
+Access mode and editing mode are **not** shown anywhere (per spec), and dirtiness is
+expressed exclusively by the footer `(*)`. There is no separate status row.
 
-**Elimation of stray rows**: The old code could produce empty filler areas when `prompt_height` mismatched actual constraints. With the new dynamic constraint vector, exactly the needed lines are requested — no leftover hyphens or empty rows.
+### 4. Layout (`main.rs::paint`)
 
-### 5. Integration Test Updates
+`paint` builds a dynamic constraint vector — body first, then the search prompt only when
+`bottom_line` is `Some`, then the always-present footer as the final chunk:
 
-Two integration test files reference `RenderView.status_line` and `bottom_line`:
+```rust
+let mut constraints = vec![Constraint::Min(1)];            // body
+if view.bottom_line.is_some() {
+    constraints.push(Constraint::Length(1));               // search prompt (SearchInput only)
+}
+constraints.push(Constraint::Length(1));                    // footer (always)
+let footer_idx = constraints.len() - 1;
+```
 
-**`tests/integration/unsaved_guards.rs`**:
-- Line ~110: `assert!(view.status_line.contains("example.txt"));` → Change to check `footer_line` instead, since path no longer appears on status line. Update to: `assert!(view.footer_line.contains("example.txt"));`
-- Two assertions on `bottom_line == None` remain valid (popup still takes precedence over search prompt).
+The footer is rendered as a single-line `Paragraph` with reversed colors,
+`Style::default().fg(Color::Black).bg(Color::White)`. A `Borders::TOP` block is **not**
+used because a 1-line bordered block leaves no room for the text; the reversed-color row
+provides the visual separation instead. Because `format_footer_line` already pads the
+string to the full width, no ratatui `Alignment` is needed.
 
-**`tests/integration/search_and_resize.rs`**:
-- Line ~61, ~232: `bottom_line.contains("Search:")` — remains valid, no change needed.
-- Layout height / resize assertions may need update since `prompt_lines()` values shifted by +1. Verify viewport math post-merge.
+This dynamic vector requests exactly the rows that render — no `Min(0)`/leftover chunks —
+so stray empty / `-` filler rows cannot appear (SC-003).
 
-## Migration Checklist
+### 5. Test coverage
 
-| Step | File | Change |
-|------|------|--------|
-| 1 | `src/app.rs` | Update `prompt_lines()` return values (+1 for footer row) |
-| 2 | `src/editor/render.rs` | Add `footer_line: String` to `RenderView`; add `format_footer_line()` + `truncate_left()` helpers; populate in `render_view()` |
-| 3 | `src/editor/status.rs` | Remove path and dirty from `format_status_line()` output |
-| 4 | `src/main.rs` | Expand layout constraints dynamically; render footer as separate chunk with Borders::TOP and right-aligned style |
-| 5 | `tests/integration/unsaved_guards.rs` | Update path assertion to check `footer_line` instead of `status_line` |
-| 6 | `tests/integration/search_and_resize.rs` | Verify resize assertions against new viewport heights |
-| 7 | Compile & test | `cargo build && cargo test` — all existing tests pass, no regressions |
+- `tests/unit/render.rs` — `format_footer_line`: clean/dirty left marker, relative and
+  absolute paths verbatim, left-truncation with `...` (dirty marker preserved), width
+  never exceeds terminal, narrow terminal width-7 fits exactly, overlong message is
+  dropped leaving the padded name, empty path renders message right, non-`Ready` message
+  surfaces on the right.
+- `tests/integration/open_and_save.rs` — dirty marker appears on edit and disappears after
+  save; relative path shown verbatim.
+- `tests/integration/unsaved_guards.rs` — footer dirty marker and left-truncation still
+  render while a quit popup is pending.
+- `tests/integration/search_and_resize.rs` — after a search producing a non-`Ready`
+  message (e.g. "No match for …"), the footer carries that message on the right alongside
+  the filename on the left.
+- `main.rs` (inline `#[cfg(test)]`) — headless `paint` via `TestBackend` asserts the
+  bottom row shows filename left + message right in both normal and SearchInput modes,
+  and that no extra status row is emitted.
+
+## Migration Checklist (executed)
+
+| Step | File | Change | Done |
+|------|------|--------|------|
+| 1 | `src/app.rs` | `prompt_lines()` → 1 (Editing) / 2 (SearchInput); footer always counts, no status row | ✅ |
+| 2 | `src/editor/render.rs` | `RenderView.status_line` → `footer_line`; `format_footer_line()` + `truncate_left()` populate it in `render_view()` | ✅ |
+| 3 | `src/editor/status.rs` | `format_status_line` removed; `current_message()` returns status text or `"Ready"` | ✅ |
+| 4 | `src/main.rs` | `paint()` uses a dynamic constraint vector — body \| [search-prompt] \| footer; footer styled reversed-colors (no `Borders::TOP`) | ✅ |
+| 5 | `tests/integration/open_and_save.rs` | Dirty marker + relative-path footer assertions | ✅ |
+| 6 | `tests/integration/unsaved_guards.rs` | Footer dirty marker / truncation while prompted | ✅ |
+| 7 | `tests/integration/search_and_resize.rs` | Footer carries non-`Ready` message after search; SearchInput layout | ✅ |
+| 8 | `tests/unit/render.rs` | `format_footer_line` edge cases incl. absolute path + non-`Ready` message | ✅ |
+| 9 | `src/main.rs` (inline) | Headless `paint` tests assert bottom row in both modes | ✅ |
+| 10 | Compile & test | `cargo build && cargo test` — green, no regressions | ✅ |
 
 ## Extension Hooks
 

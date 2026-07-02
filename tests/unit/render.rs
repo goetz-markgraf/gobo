@@ -101,3 +101,37 @@ fn empty_path_renders_message_right() {
     assert!(footer.ends_with("Ready"));
     assert_eq!(footer.len(), 10);
 }
+
+/// Spec 005 US1 scenario 3: an absolute path is shown verbatim on the left.
+/// `document.path` is stored without canonicalization, so `.display()` reproduces
+/// the argument the user typed on the command line.
+#[test]
+fn absolute_path_shown_verbatim_left() {
+    use unicode_width::UnicodeWidthStr;
+    let footer = format_footer_line("/Users/foo/bar.txt", false, "Ready", 80);
+    assert!(
+        footer.starts_with("/Users/foo/bar.txt"),
+        "absolute path should appear verbatim on the left: {footer:?}"
+    );
+    assert!(footer.ends_with("Ready"));
+    assert_eq!(UnicodeWidthStr::width(footer.as_str()), 80);
+}
+
+/// Spec 005 US1 scenario 6 (secondary states): a non-`Ready` status message —
+/// e.g. a search outcome like "No match for foo" — must appear on the RIGHT of
+/// the footer row alongside the filename on the left.
+#[test]
+fn non_ready_message_appears_on_right() {
+    use unicode_width::UnicodeWidthStr;
+    let footer =
+        format_footer_line("bar.txt", false, "No match for foo", 80);
+    assert!(
+        footer.starts_with("bar.txt"),
+        "filename still leads on the left: {footer:?}"
+    );
+    assert!(
+        footer.ends_with("No match for foo"),
+        "non-Ready status message must surface on the right: {footer:?}"
+    );
+    assert_eq!(UnicodeWidthStr::width(footer.as_str()), 80);
+}

@@ -362,3 +362,47 @@ fn findnext_from_editing_mode_with_active_query_jumps_next() {
         "Should advance to second 'foo'"
     );
 }
+
+/// Spec 005 US1 scenario 6 (secondary states): after a search that yields no
+/// match, the footer row must carry the resulting non-`Ready` status message
+/// on the RIGHT alongside the filename on the LEFT.
+#[test]
+fn footer_carries_non_ready_message_after_failed_search() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("footer_search.txt");
+    std::fs::write(&path, "hello world\n").unwrap();
+
+    // A wide terminal keeps the tempdir-derived absolute path from pushing the
+    // status message out of the row.
+    let mut session =
+        EditingSession::open(&path, TerminalSize::new(400, 24)).unwrap();
+
+    // Enter search mode, type a query that does NOT occur, confirm with Enter.
+    session.handle_command(EditorCommand::Search).unwrap();
+    assert_eq!(session.mode, SessionMode::SearchInput);
+    for ch in "zzz".chars() {
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
+    }
+    session.handle_command(EditorCommand::Enter).unwrap();
+
+    // Back in Editing mode with a "No match for zzz" status set.
+    assert_eq!(session.mode, SessionMode::Editing);
+    let view = session.render_view();
+    assert!(
+        view.footer_line.contains("footer_search.txt"),
+        "filename must appear on the left of the footer: {:?}",
+        view.footer_line
+    );
+    assert!(
+        view.footer_line.contains("No match"),
+        "failed-search status must surface on the right of the footer: {:?}",
+        view.footer_line
+    );
+    assert!(
+        !view.footer_line.trim_end().ends_with("footer_search.txt"),
+        "message should follow the filename, not be dropped: {:?}",
+        view.footer_line
+    );
+}
