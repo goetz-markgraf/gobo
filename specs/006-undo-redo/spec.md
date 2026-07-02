@@ -89,7 +89,7 @@ Der Undo-Verlauf beginnt mit dem Öffnen des Dokuments und endet beim Schließen
 
 - **FR-001**: System MUSS eine Undo-Funktion bereitstellen, die durch Ctrl-Z ausgelöst wird und die zuletzt vorgenommene Textänderung in einen einzigen Schritt zurücknimmt.
 - **FR-002**: System MUSS eine Redo-Funktion bereitstellen, die durch Ctrl-Y ausgelöst wird und den zuletzt per Undo zurückgenommenen Schritt wiederherstellt.
-- **FR-003**: System MUSS jede Textänderung – einzeln und wiederholt – rückgängig machen können, einschließlich Einfügen einzelner Zeichen, Einfügen mehrerer Zeichen, Löschen (Rücktaste/Entfernen), Zeilenumbrüchen und Ersetzungen.
+- **FR-003**: System MUSS jede Textänderung – einzeln und wiederholt – rückgängig machen können, einschließlich Einfügen einzelner Zeichen, Einfügen mehrerer Zeichen, Löschen (Rücktaste/Entfernen) und Zeilenumbrüchen. Ein Overwrite-/Ersetzungsmodus existiert nicht; jede Textänderung ist entweder ein Einfügen oder ein Löschen, sodass Ersetzungen aus Sicht des Editors nicht als eigene Änderungsart auftreten.
 - **FR-004**: Der Undo-Verlauf MUSS theoretisch unbegrenzt sein; eine künstliche Obergrenze darf nicht gesetzt werden. Das Ende ist erst erreicht, wenn der verfügbare Speicher aufgebraucht ist.
 - **FR-005**: Der Redo-Verlauf MUSS ebenfalls theoretisch unbegrenzt sein; auch hier gilt als Ende erst der Speichermangel.
 - **FR-006**: System MUSS den Grenzfall der Speichererschöpfung beim Aufnehmen eines neuen Verlaufsschritts sicher behandeln: bestehende Verläufe und insbesondere der aktuelle Dokumenttext dürfen dabei nicht beschädigt werden. Bei Speichermangel MUSS der älteste Undo-Schritt verworfen werden, um Platz für den neuen Schritt zu schaffen, so dass die neue Textänderung weiterhin aufgezeichnet wird. Die Textänderung wird in jedem Fall ausgeführt (kein Blockieren der Eingabe). Ist auch nach Verwerfen des ältesten Schritts oder generell bei Aufnahmefehler kein Platz verfügbar, MUSS der Nutzer über eine Status-/Fehlermeldung informiert werden; die Änderung geht nicht stillschweigend verloren. Die Geschichte bleibt damit praktisch unbegrenzt, mit dem ältesten Eintrag als erstes Opfer bei Speichermangel.
@@ -104,7 +104,7 @@ Der Undo-Verlauf beginnt mit dem Öffnen des Dokuments und endet beim Schließen
 
 ### Key Entities *(include if feature involves data)*
 
-- **Undo-Eintrag**: Repräsentiert eine rückgängig zu machende Änderung. Wesentliche Eigenschaften: der Zustand oder die Differenz, die beschreibt, wie der Text vor dieser Änderung aussah, sowie die Art der Änderung (Einfügen/Löschen/Ersetzen). Eine konkrete Repräsentation (Vollzustand vs. Differenz) wird in der Planung festgelegt.
+- **Undo-Eintrag**: Repräsentiert eine rückgängig zu machende Änderung. Wesentliche Eigenschaften: der Zustand oder die Differenz, die beschreibt, wie der Text vor dieser Änderung aussah, sowie die Art der Änderung (Einfügen/Löschen; Ersetzen entfällt, da es keinen Overwrite-Modus gibt). Eine konkrete Repräsentation (Vollzustand vs. Differenz) wird in der Planung festgelegt.
 - **Redo-Eintrag**: Repräsentiert eine per Undo zurückgenommene Änderung, die wiederhergestellt werden kann. Entsteht ausschließlich durch Undo und wird bei der nächsten neuen Änderung verworfen.
 - **Undo-Verlauf**: Geordnete Folge von Undo-Einträgen, jüngster oben; wächst mit jeder neuen Textänderung und schrumpft mit jedem Undo. Lebensdauer ist an die Sitzung gebunden.
 - **Redo-Verlauf**: Geordnete Folge von Redo-Einträgen; wächst mit jedem Undo, schrumpft mit jedem Redo und wird bei jeder neuen Textänderung vollständig geleert. Lebensdauer ist an die Sitzung gebunden.
@@ -129,6 +129,8 @@ Der Undo-Verlauf beginnt mit dem Öffnen des Dokuments und endet beim Schließen
 
 - Q: Wie soll die Schritt-Granularität für Undo/Redo sein (jeder Tastendruck vs. Gruppierung)? → A: Jeder Tastendruck ist ein eigener Schritt, keine Gruppierung.
 
+- Q: Hat der Editor einen Ersetzungs-/Overwrite-Modus, sodass FR-003 "Ersetzungen" eine eigene Änderungsart ist? → A: Nein. Der Editor hat keinen Overwrite-Modus; Text wird immer entweder eingefügt oder gelöscht. "Ersetzungen" sind daher keine eigene Änderungsart – jede Textänderung reduziert sich auf Einfügen oder Löschen.
+
 ## Assumptions
 
 - **Schritt-Granularität**: Jeder einzelne Tastendruck (Zeichen einfügen, einzelnes Zeichen löschen, Enter/Zeilenumbruch) bildet genau einen eigenen Undo-/Redo-Schritt. Es erfolgt keine Gruppierung aufeinanderfolgender Eingaben; diese Festlegung ist verbindlich und nicht mehr der Planung überlassen.
@@ -137,4 +139,4 @@ Der Undo-Verlauf beginnt mit dem Öffnen des Dokuments und endet beim Schließen
 - **Tastenbelegung**: Ctrl-Z steht für Undo, Ctrl-Y für Redo; bestehende Belegungen (Ctrl-S, Ctrl-Q, Ctrl-F, Ctrl-G) bleiben unberührt.
 - **Speichern**: Speichern (`Ctrl-S`) zählt nicht als Textänderung und erzeugt keinen Undo-Schritt; der Verlauf bleibt beim Speichern erhalten.
 - **Sitzungs-Bindung**: Die Verläufe leben im Arbeitsspeicher der Sitzung. Eine Persistenz über die Datei oder in Begleitdateien ist ausdrücklich nicht Teil dieses Features.
-- **Existierende Architektur**: Das Feature wird konsistent in die bestehende, dokumentierte Modulstruktur (Editor-Status, Eingabe-Mapping, Rendering) eingebettet, ohne die bestehenden Single-Document-/Single-Binary-Grenzen zu überschreiten.
+- **Änderungsarten**: Da der Editor keinen Overwrite-/Ersetzungsmodus besitzt, sind Einfügen und Löschen die einzigen Textänderungsarten. Jede Anwendung eines Ersetzungseffekts (z. B. Überschreiben) ist nicht modelliert; eine scheinbare Ersetzung entsteht nur aus aufeinanderfolgendem Löschen und Einfügen und ist damit zwei separaten Schritten zugeordnet.
