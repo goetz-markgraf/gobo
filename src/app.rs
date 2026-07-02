@@ -70,7 +70,10 @@ enum SaveDisposition {
 }
 
 impl EditingSession {
-    pub fn open(path: impl AsRef<Path>, terminal_size: TerminalSize) -> Result<Self, DocumentError> {
+    pub fn open(
+        path: impl AsRef<Path>,
+        terminal_size: TerminalSize,
+    ) -> Result<Self, DocumentError> {
         let document = DocumentBuffer::open(path.as_ref().to_path_buf())?;
         Ok(Self::new(document, terminal_size))
     }
@@ -123,7 +126,9 @@ impl EditingSession {
         match self.mode {
             SessionMode::Editing => self.handle_editing_command(command),
             SessionMode::SearchInput => self.handle_search_command(command),
-            SessionMode::ConfirmQuit | SessionMode::SaveConflictPrompt | SessionMode::Exiting => Ok(()),
+            SessionMode::ConfirmQuit | SessionMode::SaveConflictPrompt | SessionMode::Exiting => {
+                Ok(())
+            }
         }
     }
 
@@ -142,32 +147,28 @@ impl EditingSession {
             EditorCommand::Quit => self.request_quit(),
             EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
-            | EditorCommand::Cancel
-             | EditorCommand::FindNext => {},
-            | EditorCommand::NextChoice
+            EditorCommand::Cancel | EditorCommand::FindNext => {}
+            EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
         }
 
-         // Handle FindNext from editing mode (cursor jumps to next search match)
+        // Handle FindNext from editing mode (cursor jumps to next search match)
         if let EditorCommand::FindNext = command {
             if let Some(ref mut search) = self.search {
                 match search.query.is_empty() {
                     true => self.status = Some(StatusMessage::warning("No match")),
-                    false => match search.find_next(&self.document.text,  self.cursor.char_index) {
+                    false => match search.find_next(&self.document.text, self.cursor.char_index) {
                         Some((start, end)) => {
                             self.cursor.char_index = start;
-                            self.cursor.preferred_column = cursor::visual_column(
-                                 &self.document.text, start
-                             );
-                            self.status = Some(StatusMessage::info(
-                                format!("Match at {}..{}", start, end),
-                             )
-);
-                         },
+                            self.cursor.preferred_column =
+                                cursor::visual_column(&self.document.text, start);
+                            self.status =
+                                Some(StatusMessage::info(format!("Match at {}..{}", start, end)));
+                        }
                         None => {
                             self.status = Some(StatusMessage::warning("No match"));
-                         }
+                        }
                     },
                 };
             } else {
@@ -195,9 +196,12 @@ impl EditingSession {
                 if search.query.is_empty() {
                     self.status = Some(StatusMessage::info("Search cancelled"));
                     self.mode = SessionMode::Editing;
-                } else if let Some((start, end)) = search.find_next(&self.document.text, self.cursor.char_index) {
+                } else if let Some((start, end)) =
+                    search.find_next(&self.document.text, self.cursor.char_index)
+                {
                     self.cursor.char_index = start;
-                    self.cursor.preferred_column = cursor::visual_column(&self.document.text, start);
+                    self.cursor.preferred_column =
+                        cursor::visual_column(&self.document.text, start);
                     self.status = Some(StatusMessage::success(format!(
                         "Match found at {}..{}",
                         start, end
@@ -224,12 +228,10 @@ impl EditingSession {
                     match result {
                         Some((start, end)) => {
                             self.cursor.char_index = start;
-                            self.cursor.preferred_column = cursor::visual_column(
-                                &self.document.text, start,
-                            );
-                            self.status = Some(StatusMessage::info(
-                                format!("Match at {}..{}", start, end),
-                            ));
+                            self.cursor.preferred_column =
+                                cursor::visual_column(&self.document.text, start);
+                            self.status =
+                                Some(StatusMessage::info(format!("Match at {}..{}", start, end)));
                         }
                         None => {
                             self.status = Some(StatusMessage::warning("No match"));
@@ -238,15 +240,15 @@ impl EditingSession {
                 }
             }
             EditorCommand::MoveLeft
-              | EditorCommand::MoveRight
-              | EditorCommand::MoveUp
-              | EditorCommand::MoveDown
-              | EditorCommand::Delete
-              | EditorCommand::Save
-              | EditorCommand::Search
-              | EditorCommand::NextChoice
-              | EditorCommand::PreviousChoice
-              | EditorCommand::Resize(_) => {}
+            | EditorCommand::MoveRight
+            | EditorCommand::MoveUp
+            | EditorCommand::MoveDown
+            | EditorCommand::Delete
+            | EditorCommand::Save
+            | EditorCommand::Search
+            | EditorCommand::NextChoice
+            | EditorCommand::PreviousChoice
+            | EditorCommand::Resize(_) => {}
         }
         self.sync_viewport();
         Ok(())
@@ -271,7 +273,10 @@ impl EditingSession {
                 }
                 EditorCommand::Enter => match focus {
                     UnsavedChoice::Save => {
-                        if matches!(self.save_document(Some(action.clone()))?, SaveDisposition::Saved) {
+                        if matches!(
+                            self.save_document(Some(action.clone()))?,
+                            SaveDisposition::Saved
+                        ) {
                             self.mode = SessionMode::Exiting;
                         }
                     }
@@ -324,7 +329,8 @@ impl EditingSession {
                             self.status = Some(StatusMessage::success("Overwrite save complete"));
                         }
                         SaveResult::BlockedReadOnly => {
-                            self.status = Some(StatusMessage::error("Cannot overwrite in read-only mode"));
+                            self.status =
+                                Some(StatusMessage::error("Cannot overwrite in read-only mode"));
                         }
                         SaveResult::ConflictDetected => {
                             self.status = Some(StatusMessage::warning("Conflict still present"));
@@ -360,7 +366,9 @@ impl EditingSession {
             return;
         }
 
-        if let Some(next_index) = buffer::remove_char_before(&mut self.document.text, self.cursor.char_index) {
+        if let Some(next_index) =
+            buffer::remove_char_before(&mut self.document.text, self.cursor.char_index)
+        {
             self.cursor.char_index = next_index;
             self.cursor.preferred_column = cursor::visual_column(&self.document.text, next_index);
             self.document.mark_dirty();
@@ -452,10 +460,11 @@ impl EditingSession {
     }
 
     pub fn prompt_lines(&self) -> u16 {
-        if self.mode == SessionMode::SearchInput {
-            2
-        } else {
-            1
+        // The single footer row is always present; the search prompt adds one more
+        // row only while in SearchInput mode. There is no separate status line.
+        match self.mode == SessionMode::SearchInput {
+            true => 2,  // search-prompt + footer
+            false => 1, // footer only
         }
     }
 }

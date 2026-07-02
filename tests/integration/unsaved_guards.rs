@@ -1,5 +1,5 @@
-use gobo::app::{PromptState, SessionMode, UnsavedChoice};
 use gobo::app::EditingSession;
+use gobo::app::{PromptState, SessionMode, UnsavedChoice};
 use gobo::editor::input::EditorCommand;
 use gobo::editor::render::{PromptVariant, TerminalSize};
 use std::fs;
@@ -10,7 +10,9 @@ fn dirty_session(path_name: &str) -> (tempfile::TempDir, std::path::PathBuf, Edi
     let path = dir.path().join(path_name);
     fs::write(&path, "seed\n").unwrap();
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
-    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('x'))
+        .unwrap();
     (dir, path, session)
 }
 
@@ -32,7 +34,13 @@ fn quit_with_unsaved_changes_requires_confirmation() {
     let popup = view.popup.expect("unsaved popup should render");
     assert_eq!(popup.variant, PromptVariant::Full);
     assert_eq!(popup.title, "Unsaved changes");
-    assert!(popup.message.as_deref().unwrap().contains("Save before quitting"));
+    assert!(
+        popup
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("Save before quitting")
+    );
     assert_eq!(popup.actions.len(), 3);
     assert_eq!(popup.actions[0].label, "[Save]");
     assert!(popup.actions[0].focused);
@@ -83,7 +91,10 @@ fn enter_key_selects_focused_save_action_in_unsaved_prompt() {
     session.handle_command(EditorCommand::Enter).unwrap();
 
     // After committing Save, the quit flow should complete and exit.
-    assert!(session.is_exiting(), "Enter key should select the focused Save action and complete the quit");
+    assert!(
+        session.is_exiting(),
+        "Enter key should select the focused Save action and complete the quit"
+    );
 }
 
 #[test]
@@ -103,11 +114,16 @@ fn long_path_status_text_does_not_replace_quit_popup() {
     fs::write(&path, "seed\n").unwrap();
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
-    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('x'))
+        .unwrap();
     session.handle_command(EditorCommand::Quit).unwrap();
 
     let view = session.render_view();
-    assert!(view.status_line.contains("example.txt"));
+    // The path is absolute and long, so the footer truncates from the left.
+    // It still carries the dirty marker and does not override the popup.
+    assert!(view.footer_line.contains("(*)"));
+    assert!(view.footer_line.starts_with("..."));
     let popup = view.popup.expect("quit popup should take precedence");
     assert_eq!(popup.title, "Unsaved changes");
     assert_eq!(view.bottom_line, None);

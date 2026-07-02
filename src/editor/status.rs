@@ -1,5 +1,4 @@
 use crate::app::{ConflictChoice, EditingSession, PromptState, SessionMode, UnsavedChoice};
-use crate::document::AccessMode;
 use crate::editor::render::{PopupRect, PopupView, PromptActionLabel, PromptVariant, TerminalSize};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,27 +45,14 @@ impl StatusMessage {
     }
 }
 
-pub fn format_status_line(session: &EditingSession) -> String {
-    let path = session.document.path.display();
-    let access = match session.document.access_mode {
-        AccessMode::Editable => "EDIT",
-        AccessMode::ReadOnly => "READ-ONLY",
-    };
-    let dirty = if session.document.dirty { "DIRTY" } else { "CLEAN" };
-    let mode = match session.mode {
-        SessionMode::Editing => "editing",
-        SessionMode::SearchInput => "search",
-        SessionMode::ConfirmQuit => "confirm-quit",
-        SessionMode::SaveConflictPrompt => "save-conflict",
-        SessionMode::Exiting => "exiting",
-    };
-    let message = session
+/// The human-readable status message for the current session, shown on the
+/// right of the footer row. Defaults to `Ready` when no status is set.
+pub fn current_message(session: &EditingSession) -> String {
+    session
         .status
         .as_ref()
-        .map(|status| status.text.as_str())
-        .unwrap_or("Ready");
-
-    format!("{} | {} | {} | {} | {}", path, access, dirty, mode, message)
+        .map(|status| status.text.clone())
+        .unwrap_or_else(|| "Ready".to_string())
 }
 
 pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Option<PopupView> {
@@ -80,11 +66,7 @@ pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Opti
                     Some("Save before quitting?".to_string()),
                     ["Save", "Discard", "Cancel"],
                 ),
-                PromptVariant::Compact => (
-                    "Unsaved".to_string(),
-                    None,
-                    ["Save", "Drop", "Back"],
-                ),
+                PromptVariant::Compact => ("Unsaved".to_string(), None, ["Save", "Drop", "Back"]),
             };
             let rect = popup_rect(terminal_size, variant, message.is_some());
             PopupView {
@@ -117,11 +99,9 @@ pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Opti
                     Some("Choose how to continue saving.".to_string()),
                     ["Reload", "Overwrite", "Cancel"],
                 ),
-                PromptVariant::Compact => (
-                    "Conflict".to_string(),
-                    None,
-                    ["Reload", "Write", "Back"],
-                ),
+                PromptVariant::Compact => {
+                    ("Conflict".to_string(), None, ["Reload", "Write", "Back"])
+                }
             };
             let rect = popup_rect(terminal_size, variant, message.is_some());
             PopupView {

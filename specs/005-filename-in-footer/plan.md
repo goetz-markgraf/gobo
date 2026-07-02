@@ -2,6 +2,25 @@
 
 **Branch**: `[005-filename-in-footer]` | **Date**: 2026-07-01 | **Spec**: [spec.md](./spec.md)
 
+## Revision 2026-07-02 (design simplification — authoritative)
+
+The original plan below added a footer row **in addition** to the existing status line (body | status-line | footer). During implementation this turned out to be problematic in practice: on wide terminals the right-aligned filename in the lower row was hard to perceive, and the mode/access information was never requested by the user.
+
+The design is collapsed to a **single bottom row** that combines both concerns:
+
+- **LEFT**: the filename (CLI path as-is) with an optional ` (*)` dirty marker.
+- **RIGHT**: the current status message (e.g. `Ready`, `Match found`, `No match`, `Search cancelled`).
+- There is **no separate status-line row** and **no mode/access display** any more.
+- Layout is now: **body | footer** in normal mode, **body | search-prompt | footer** during `SearchInput`. The search prompt is the only additional row.
+
+Consequences for the sections below (which otherwise describe the two-row design and are kept for history):
+
+- `status::format_status_line()` is removed entirely; the message is produced from `session.status` and merged into the single footer string.
+- `RenderView.status_line` is removed and `RenderView.footer_line` now carries `"{filename}  {message}"`-style content (filename left, message right-padded to terminal width). The `truncate_left` helper still applies to the filename part when the path is too long, but the message is dropped first if space is tight.
+- `prompt_lines()` returns **2** in `SearchInput` mode (search prompt + footer) and **1** otherwise (footer). Earlier `+1` values were based on the now-removed status line and are reduced.
+- `main.rs::draw` renders only `body`, the optional search prompt, and the footer. The status chunk is gone.
+- Tests asserting on `render_view().status_line` are updated to assert on `footer_line` instead.
+
 ## Summary
 
 Add a dedicated footer row at the bottom of the screen displaying the current filename (as given on the CLI), right-aligned, with an optional `(*)` marker when the file is dirty. Eliminate stray empty/hyphen filler rows so the visible layout renders exactly three areas: **body | status-line | footer** (expanding to four during `SearchInput` mode). The implementation touches five files: `render.rs` (new `footer_line` field + truncation helper), `status.rs` (remove path from status line → move dirtiness indicator to footer), `main.rs` (layout constraint expansion for the footer row), and two integration test files that reference `RenderView.status_line` contents.

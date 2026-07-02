@@ -28,7 +28,7 @@ src/
     ├── input.rs     KeyEvent → EditorCommand mapping (key bindings table)
     ├── render.rs    EditingSession → RenderView; viewport slicing, column clipping
     ├── search.rs    SearchState: case-insensitive find_next() with wrap-around
-    └── status.rs    StatusMessage formatting, popup view construction
+    └── status.rs    StatusMessage → footer message, popup view construction
 ```
 
 ### Data Flow (Per Event Loop Tick)
@@ -36,7 +36,7 @@ src/
 1. `crossterm::event::poll()` → `Event::Key` or `Event::Resize`
 2. `map_key_event(key)` → `Option<EditorCommand>` (or `Resize(TerminalSize)`)
 3. `session.handle_command(command)` → mutates session state
-4. `session.render_view()` → `RenderView` (body lines, status line, optional popup/bottom-line)
+4. `session.render_view()` → `RenderView` (body lines, footer line with filename + status message, optional popup/bottom-line)
 5. `draw(terminal, &view)` → ratatui frame render + cursor position
 
 ## State Machine (`SessionMode`)

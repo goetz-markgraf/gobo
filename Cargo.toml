@@ -45,3 +45,7 @@ path = "tests/unit/cursor.rs"
 [[test]]
 name = "unit_search"
 path = "tests/unit/search.rs"
+
+[[test]]
+name = "unit_render"
+path = "tests/unit/render.rs"

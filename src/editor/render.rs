@@ -77,12 +77,88 @@ pub struct PopupView {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderView {
     pub body_lines: Vec<String>,
-    pub status_line: String,
+    pub footer_line: String, // bottom row: filename (left) + status message (right)
     pub bottom_line: Option<String>,
     // Overlay prompts render independently from the bottom-line status/search surfaces.
     pub popup: Option<PopupView>,
     pub cursor_x: u16,
     pub cursor_y: u16,
+}
+
+/// Format the single footer row: the filename (CLI path) plus optional
+/// ` (*)` dirty marker on the LEFT, and the status `message` on the RIGHT,
+/// padded to `terminal_width` columns so the two sit at the opposite ends of
+/// the row. If the filename is too long it is truncated from the left with a
+/// `...` prefix; the message (which is less critical) is dropped first when
+/// space is tight. Spec 005 FR-001 / FR-003 (revision 2026-07-02).
+pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width: u16) -> String {
+    let name = if dirty {
+        format!("{} (*)", path)
+    } else {
+        path.to_string()
+    };
+    let width = terminal_width as usize;
+    let name_width = UnicodeWidthStr::width(name.as_str());
+
+    // No room for the message at all: show just the (possibly truncated) name.
+    if name_width >= width {
+        return truncate_name(&name, terminal_width, dirty);
+    }
+
+    let msg_width = UnicodeWidthStr::width(message);
+    let gap_width = width.saturating_sub(name_width);
+    // Need at least one space of separation between name and message.
+    if msg_width < gap_width {
+        let pad = gap_width - msg_width;
+        return format!("{}{}{}", name, " ".repeat(pad), message);
+    }
+
+    // Message won't fit beside the name: drop it and show only the name, padded
+    // right with spaces to fill the row. If even the name overflows, truncate.
+    if name_width <= width {
+        return format!("{}{}", name, " ".repeat(gap_width));
+    }
+    truncate_name(&name, terminal_width, dirty)
+}
+
+/// Truncate `name` (a path plus optional ` (*)` suffix) to `terminal_width`
+/// columns, keeping the filename end and prepending `...`.
+fn truncate_name(name: &str, terminal_width: u16, dirty: bool) -> String {
+    let suffix_len = if dirty { 4usize } else { 0 }; // len(" (*)")
+    let available = terminal_width
+        .saturating_sub(3)
+        .saturating_sub(suffix_len as u16);
+    if dirty {
+        let path_part = name.trim_end_matches(" (*)");
+        truncate_left(path_part, available) + " (*)"
+    } else {
+        truncate_left(name, available)
+    }
+}
+
+/// Truncate a string to fit `max_width` columns by dropping characters from
+/// the **left** and prepending "...", so the right-most part (e.g. the
+/// filename at the end of a path) is preserved. Spec 005 FR-001.
+fn truncate_left(s: &str, max_width: u16) -> String {
+    if UnicodeWidthStr::width(s) <= max_width as usize {
+        return format!("...{}", s);
+    }
+
+    // Walk graphemes from the right, accumulating until the budget is full.
+    let graphemes: Vec<&str> =
+        unicode_segmentation::UnicodeSegmentation::graphemes(s, true).collect();
+    let mut kept: Vec<&str> = Vec::new();
+    let mut width = 0usize;
+    for g in graphemes.iter().rev() {
+        let gw = UnicodeWidthStr::width(*g);
+        if width + gw > max_width as usize {
+            break;
+        }
+        kept.push(g);
+        width += gw;
+    }
+    kept.reverse();
+    format!("...{}", kept.concat())
 }
 
 pub fn render_view(session: &EditingSession) -> RenderView {
@@ -93,16 +169,27 @@ pub fn render_view(session: &EditingSession) -> RenderView {
     for row in 0..height {
         let line_index = session.viewport.top_line + row;
         let line_text = buffer::line_content(&session.document.text, line_index);
-        body_lines.push(slice_visible_columns(&line_text, session.viewport.left_column, width));
+        body_lines.push(slice_visible_columns(
+            &line_text,
+            session.viewport.left_column,
+            width,
+        ));
     }
 
-    let status_line = status::format_status_line(session);
+    let message = status::current_message(session);
     let popup = status::popup_view(session, session.terminal_size);
     let bottom_line = if popup.is_some() {
         None
     } else {
         status::search_prompt(session)
     };
+
+    let footer_line = format_footer_line(
+        session.document.path.display().to_string().as_str(),
+        session.document.dirty,
+        &message,
+        session.terminal_size.width,
+    );
 
     let cursor_line = buffer::line_of_char(&session.document.text, session.cursor.char_index);
     let cursor_column = cursor::visual_column(&session.document.text, session.cursor.char_index);
@@ -111,7 +198,7 @@ pub fn render_view(session: &EditingSession) -> RenderView {
 
     RenderView {
         body_lines,
-        status_line,
+        footer_line,
         bottom_line,
         popup,
         cursor_x,

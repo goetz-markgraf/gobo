@@ -11,7 +11,9 @@ fn dirty_session_with_size(
     let path = dir.path().join(path_name);
     std::fs::write(&path, "alpha\nbeta\ngamma\n").unwrap();
     let mut session = EditingSession::open(&path, size).unwrap();
-    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('x'))
+        .unwrap();
     (dir, path, session)
 }
 
@@ -24,14 +26,25 @@ fn search_is_case_insensitive_and_reports_no_match() {
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
     session.handle_command(EditorCommand::Search).unwrap();
     for ch in "third".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
     session.handle_command(EditorCommand::Enter).unwrap();
-    assert!(session.status.as_ref().unwrap().text.contains("Match found"));
+    assert!(
+        session
+            .status
+            .as_ref()
+            .unwrap()
+            .text
+            .contains("Match found")
+    );
 
     session.handle_command(EditorCommand::Search).unwrap();
     for ch in "missing".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
     session.handle_command(EditorCommand::Enter).unwrap();
     assert!(session.status.as_ref().unwrap().text.contains("No match"));
@@ -44,7 +57,9 @@ fn resize_updates_viewport_and_render_output() {
     std::fs::write(&path, "alpha\nbeta\ngamma\n").unwrap();
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
-    session.handle_command(EditorCommand::Resize(TerminalSize::new(20, 5))).unwrap();
+    session
+        .handle_command(EditorCommand::Resize(TerminalSize::new(20, 5)))
+        .unwrap();
     let view = session.render_view();
 
     assert_eq!(session.viewport.visible_width, 20);
@@ -54,11 +69,21 @@ fn resize_updates_viewport_and_render_output() {
 
 #[test]
 fn quit_popup_takes_precedence_over_active_search() {
-    let (_dir, _path, mut session) = dirty_session_with_size("search-precedence.txt", TerminalSize::new(80, 24));
+    let (_dir, _path, mut session) =
+        dirty_session_with_size("search-precedence.txt", TerminalSize::new(80, 24));
     session.handle_command(EditorCommand::Search).unwrap();
-    session.handle_command(EditorCommand::InsertChar('a')).unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('a'))
+        .unwrap();
     assert_eq!(session.mode, SessionMode::SearchInput);
-    assert!(session.render_view().bottom_line.as_deref().unwrap().contains("Search:"));
+    assert!(
+        session
+            .render_view()
+            .bottom_line
+            .as_deref()
+            .unwrap()
+            .contains("Search:")
+    );
 
     session.handle_command(EditorCommand::Quit).unwrap();
 
@@ -70,7 +95,8 @@ fn quit_popup_takes_precedence_over_active_search() {
 
 #[test]
 fn resize_while_prompted_keeps_popup_visible_and_uses_compact_variant() {
-    let (_dir, _path, mut session) = dirty_session_with_size("resize-prompt.txt", TerminalSize::new(80, 24));
+    let (_dir, _path, mut session) =
+        dirty_session_with_size("resize-prompt.txt", TerminalSize::new(80, 24));
     session.handle_command(EditorCommand::Quit).unwrap();
 
     let before = session.render_view().popup.expect("popup before resize");
@@ -108,11 +134,15 @@ fn empty_and_very_long_lines_render_without_crashing() {
 fn search_full_flow_confirms_first_match_and_exits() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("search-flow.txt");
-    std::fs::write(&path, "alpha
+    std::fs::write(
+        &path,
+        "alpha
 beta
 gamma
 alpha again
-").unwrap();
+",
+    )
+    .unwrap();
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
 
@@ -121,12 +151,21 @@ alpha again
     assert_eq!(session.mode, SessionMode::SearchInput);
 
     for ch in "beta".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
 
     // Press Enter to confirm search
     session.handle_command(EditorCommand::Enter).unwrap();
-    assert!(session.status.as_ref().unwrap().text.contains("Match found"));
+    assert!(
+        session
+            .status
+            .as_ref()
+            .unwrap()
+            .text
+            .contains("Match found")
+    );
     assert_eq!(session.mode, SessionMode::Editing);
     // Cursor should be at start of first match (position 0 for "beta" on line 2)
 
@@ -140,9 +179,13 @@ alpha again
 fn search_cancel_returns_to_editing_without_modifying_cursor() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("cancel-flow.txt");
-    std::fs::write(&path, "first line
+    std::fs::write(
+        &path,
+        "first line
 second line
-").unwrap();
+",
+    )
+    .unwrap();
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
     let initial_char_index = session.cursor.char_index;
@@ -150,15 +193,18 @@ second line
     // Start search and type something
     session.handle_command(EditorCommand::Search).unwrap();
     assert_eq!(session.mode, SessionMode::SearchInput);
-    session.handle_command(EditorCommand::InsertChar('x')).unwrap();
-    session.handle_command(EditorCommand::InsertChar('y')).unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('x'))
+        .unwrap();
+    session
+        .handle_command(EditorCommand::InsertChar('y'))
+        .unwrap();
 
     // Press Cancel (Esc) - should return to editing without cursor movement
     session.handle_command(EditorCommand::Cancel).unwrap();
     assert_eq!(session.mode, SessionMode::Editing);
     assert_eq!(session.cursor.char_index, initial_char_index);
 }
-
 
 // T010 (US2): Integration test for find-next flow with Ctrl+G
 #[test]
@@ -169,22 +215,30 @@ fn find_next_jump_to_next_match_via_command() {
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
 
-        // Enter search mode and type a query
+    // Enter search mode and type a query
     session.handle_command(EditorCommand::Search).unwrap();
     assert_eq!(session.mode, SessionMode::SearchInput);
 
     for ch in "alpha".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
-       // Confirm search - should jump to first match
+    // Confirm search - should jump to first match
     session.handle_command(EditorCommand::Enter).unwrap();
     assert_eq!(session.mode, SessionMode::Editing);
-    assert!(session.status.as_ref().unwrap().text.contains("Match found"));
+    assert!(
+        session
+            .status
+            .as_ref()
+            .unwrap()
+            .text
+            .contains("Match found")
+    );
 
-      // Re-enter search mode and confirm again to have a fresh starting position
+    // Re-enter search mode and confirm again to have a fresh starting position
     let _initial_cursor = session.cursor.char_index;
 }
-
 
 // T019 (US2+Polish): Empty query + Enter exits silently without moving cursor
 #[test]
@@ -198,17 +252,17 @@ fn empty_query_enter_exits_silently() {
     let _initial_status = session.status.take();
 
     session.handle_command(EditorCommand::Search).unwrap();
-       assert_eq!(session.mode, SessionMode::SearchInput);
-        // Don't type anything — leave query empty
-    
+    assert_eq!(session.mode, SessionMode::SearchInput);
+    // Don't type anything — leave query empty
+
     session.handle_command(EditorCommand::Enter).unwrap();
-      assert_eq!(session.mode, SessionMode::Editing);
-         // Cursor should NOT have moved
+    assert_eq!(session.mode, SessionMode::Editing);
+    // Cursor should NOT have moved
     assert_eq!(session.cursor.char_index, initial_char_index);
 }
 
 // T019b: Ctrl+G with empty search shows "No match" without moving cursor
-#[test] 
+#[test]
 fn ctrlg_with_empty_query_shows_no_match() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("empty-ctrlg.txt");
@@ -217,19 +271,24 @@ fn ctrlg_with_empty_query_shows_no_match() {
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
     let initial_char_index = session.cursor.char_index;
 
-       // Enter search mode WITHOUT typing anything
+    // Enter search mode WITHOUT typing anything
     session.handle_command(EditorCommand::Search).unwrap();
     assert_eq!(session.mode, SessionMode::SearchInput);
-     // Press Ctrl+G with empty query — should show "No match"
+    // Press Ctrl+G with empty query — should show "No match"
     session.handle_command(EditorCommand::FindNext).unwrap();
-    
-    // Mode should stay SearchInput  
+
+    // Mode should stay SearchInput
     assert_eq!(session.mode, SessionMode::SearchInput);
-       // Cursor should NOT have moved
-     assert_eq!(session.cursor.char_index, initial_char_index);
-       // Status should indicate no match (the search prompt should show the empty query)
+    // Cursor should NOT have moved
+    assert_eq!(session.cursor.char_index, initial_char_index);
+    // Status should indicate no match (the search prompt should show the empty query)
     let view = session.render_view();
-    assert!(view.bottom_line.as_deref().unwrap_or("").contains("Search: "));
+    assert!(
+        view.bottom_line
+            .as_deref()
+            .unwrap_or("")
+            .contains("Search: ")
+    );
 }
 
 // T023 (US2): Full integration flow for Ctrl-G — Enter to confirm, then Ctrl-G advances through matches
@@ -240,11 +299,13 @@ fn ctrlg_full_flow_jumps_to_subsequent_matches() {
     std::fs::write(&path, "alpha\nbeta\nalpha\ngamma\nalpha\n").unwrap();
 
     let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
-    
+
     // Enter search mode and type "alpha"
     session.handle_command(EditorCommand::Search).unwrap();
     for ch in "alpha".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
 
     // Confirm search (Enter) — jumps to first match at char 0
@@ -253,15 +314,24 @@ fn ctrlg_full_flow_jumps_to_subsequent_matches() {
 
     // Press Ctrl-G repeatedly — should advance through all "alpha" occurrences
     session.handle_command(EditorCommand::FindNext).unwrap();
-    assert_eq!(session.cursor.char_index, 11, "Should advance to second occurrence");
+    assert_eq!(
+        session.cursor.char_index, 11,
+        "Should advance to second occurrence"
+    );
 
     // Press Ctrl-G again — should advance to the third occurrence
     session.handle_command(EditorCommand::FindNext).unwrap();
-    assert_eq!(session.cursor.char_index, 23, "Should advance to third occurrence");
+    assert_eq!(
+        session.cursor.char_index, 23,
+        "Should advance to third occurrence"
+    );
 
     // Press Ctrl-G again — should wrap around and find the first match
     session.handle_command(EditorCommand::FindNext).unwrap();
-    assert_eq!(session.cursor.char_index, 0, "Should have wrapped back to start");
+    assert_eq!(
+        session.cursor.char_index, 0,
+        "Should have wrapped back to start"
+    );
 }
 
 // T024 (US2): Ctrl-G from editing mode with confirmed search should still work (query persists)
@@ -276,15 +346,19 @@ fn findnext_from_editing_mode_with_active_query_jumps_next() {
     // Search for "foo", Enter to confirm first match at char 0
     session.handle_command(EditorCommand::Search).unwrap();
     for ch in "foo".chars() {
-        session.handle_command(EditorCommand::InsertChar(ch)).unwrap();
+        session
+            .handle_command(EditorCommand::InsertChar(ch))
+            .unwrap();
     }
     session.handle_command(EditorCommand::Enter).unwrap();
-    
+
     let initial_pos = session.cursor.char_index;
     assert_eq!(initial_pos, 0);
 
     // Now in editing mode. Press Ctrl-G — should still find next match
     session.handle_command(EditorCommand::FindNext).unwrap();
-    assert!(session.cursor.char_index > initial_pos, "Should advance to second 'foo'");
+    assert!(
+        session.cursor.char_index > initial_pos,
+        "Should advance to second 'foo'"
+    );
 }
-
