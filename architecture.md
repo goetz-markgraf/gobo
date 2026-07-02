@@ -28,8 +28,15 @@ src/
     ├── input.rs     KeyEvent → EditorCommand mapping (key bindings table)
     ├── render.rs    EditingSession → RenderView; viewport slicing, column clipping
     ├── search.rs    SearchState: case-insensitive find_next() with wrap-around
-    └── status.rs    StatusMessage → footer message, popup view construction
+    ├── status.rs    StatusMessage → footer message, popup view construction
+    └── history.rs   Undo/Redo: History { undo, redo } + EditStep + record/undo/redo
 ```
+
+The `EditingSession` owns a `history: History` field (in-memory, session-bound,
+never persisted). Ctrl-Z dispatches `EditorCommand::Undo`, Ctrl-Y dispatches
+`EditorCommand::Redo`; both are wired in `handle_editing_command` and silently
+ignored in search/prompt modes. Every text mutation (`insert_text`, `backspace`,
+`delete`) records one `EditStep` via `history.record`, which clears the redo stack.
 
 ### Data Flow (Per Event Loop Tick)
 
@@ -91,6 +98,7 @@ Test pure functions directly with constructed inputs; no `EditingSession` involv
 | `buffer.rs` | Insert / remove / delete / replace / line helpers | `Rope`, buffer module funcs |
 | `cursor.rs` | Motion (left/right/up/down), viewport clamp, visual column math | `CursorState`, `ViewportState` |
 | `search.rs` | Case-insensitive match, edge cases (empty query, wrap-around, multi-byte) | `SearchState` |
+| `history.rs` | `EditStep` reverse/forward symmetry, clear-redo, OOM eviction, empty-stack no-ops | `History`, `EditStep`, `Rope` |
 
 ### Integration Tests (`tests/integration/`)
 
@@ -104,6 +112,7 @@ Each file groups tests by topic with a shared helper function at the top:
 | `readonly_and_conflict.rs` | Read-only guards + external-change conflict prompt | inline `tempdir()`, `#[cfg(unix)]` for chmod |
 | `search_and_resize.rs` | Full search flow (type→confirm), resize while prompted | `dirty_session_with_size()` |
 | `enter_newline.rs` | Enter key text insertion at every edge position | `make_session()` + `assert_enter_text()` |
+| `undo_redo.rs` | Full Undo/Redo, clear-redo-on-edit, session lifetime, mode gating, OOM, save | `session_with_seed()` / `session_with_capped_history()` |
 
 ### How to Write Tests
 
@@ -120,6 +129,8 @@ Each file groups tests by topic with a shared helper function at the top:
 - **Stateful structs only for compound concerns:** `EditingSession`, `SearchState`, `DiskSnapshot`
 - **Render = pure projection:** `render_view()` derives `RenderView` from session snapshot – no side effects
 - **Input mapping isolated in one place:** `editor/input.rs` is the single source of truth for key bindings
+  (including Ctrl-Z → Undo, Ctrl-Y → Redo, placed before the printable-char catch-all so the `!CONTROL`
+  guard prevents aliasing to `InsertChar('z')/'y')`)
 - **Render split across layers:** `editor/render.rs` produces a data struct (`RenderView`); actual widget rendering
   with layout constraints lives in `main.rs::draw()` – two separate concerns
 

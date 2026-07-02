@@ -7,6 +7,7 @@ use crate::editor::input::EditorCommand;
 use crate::editor::render::{self, RenderView, TerminalSize, ViewportState};
 use crate::editor::search::SearchState;
 use crate::editor::status::StatusMessage;
+use crate::editor::history::History;
 use std::path::Path;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,6 +61,9 @@ pub struct EditingSession {
     pub status: Option<StatusMessage>,
     pub pending_prompt: Option<PromptState>,
     pub terminal_size: TerminalSize,
+    /// Undo/redo history. Session-bound: in-memory only, never persisted,
+    /// and initialized empty on every `new()`/`open()` (FR-008).
+    pub history: History,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -88,6 +92,7 @@ impl EditingSession {
             status: Some(StatusMessage::info("Ready")),
             pending_prompt: None,
             terminal_size,
+            history: History::new(),
         };
         session.sync_viewport();
         if session.document.is_read_only() {
@@ -148,6 +153,8 @@ impl EditingSession {
             EditorCommand::Enter => self.insert_text("\n"),
             EditorCommand::Search => self.begin_search(),
             EditorCommand::Cancel | EditorCommand::FindNext => {}
+            EditorCommand::Undo => self.undo(),
+            EditorCommand::Redo => self.redo(),
             EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -246,6 +253,8 @@ impl EditingSession {
             | EditorCommand::Delete
             | EditorCommand::Save
             | EditorCommand::Search
+            | EditorCommand::Undo
+            | EditorCommand::Redo
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -353,11 +362,17 @@ impl EditingSession {
             return;
         }
 
-        let next_index = buffer::insert_text(&mut self.document.text, self.cursor.char_index, text);
+        let index = self.cursor.char_index;
+        let next_index = buffer::insert_text(&mut self.document.text, index, text);
         self.cursor.char_index = next_index;
         self.cursor.preferred_column = cursor::visual_column(&self.document.text, next_index);
         self.document.mark_dirty();
-        self.status = Some(StatusMessage::info("Inserted text"));
+        let step = crate::editor::history::EditStep::Insert {
+            index,
+            text: text.to_string(),
+        };
+        let outcome = self.history.record(step);
+        self.status = Some(history_status(outcome, "Inserted text"));
     }
 
     fn backspace(&mut self) {
@@ -366,13 +381,26 @@ impl EditingSession {
             return;
         }
 
+        let char_index = self.cursor.char_index;
+        // Capture the char that will be removed *before* the mutation.
+        let removed = if char_index > 0 {
+            Some(self.document.text.char(char_index - 1).to_string())
+        } else {
+            None
+        };
+
         if let Some(next_index) =
-            buffer::remove_char_before(&mut self.document.text, self.cursor.char_index)
+            buffer::remove_char_before(&mut self.document.text, char_index)
         {
             self.cursor.char_index = next_index;
             self.cursor.preferred_column = cursor::visual_column(&self.document.text, next_index);
             self.document.mark_dirty();
-            self.status = Some(StatusMessage::info("Deleted text"));
+            let step = crate::editor::history::EditStep::Delete {
+                index: next_index,
+                text: removed.expect("removed char exists when remove_char_before succeeds"),
+            };
+            let outcome = self.history.record(step);
+            self.status = Some(history_status(outcome, "Deleted text"));
         }
     }
 
@@ -382,9 +410,22 @@ impl EditingSession {
             return;
         }
 
-        if buffer::delete_char_at(&mut self.document.text, self.cursor.char_index) {
+        let char_index = self.cursor.char_index;
+        // Capture the char at the cursor *before* the mutation.
+        let removed = if char_index < self.document.text.len_chars() {
+            Some(self.document.text.char(char_index).to_string())
+        } else {
+            None
+        };
+
+        if buffer::delete_char_at(&mut self.document.text, char_index) {
             self.document.mark_dirty();
-            self.status = Some(StatusMessage::info("Deleted text"));
+            let step = crate::editor::history::EditStep::Delete {
+                index: char_index,
+                text: removed.expect("removed char exists when delete_char_at succeeds"),
+            };
+            let outcome = self.history.record(step);
+            self.status = Some(history_status(outcome, "Deleted text"));
         }
     }
 
@@ -452,6 +493,33 @@ impl EditingSession {
         self.status = Some(StatusMessage::info("Prompt cancelled"));
     }
 
+    /// Undo the last recorded edit. Restores the rope's pre-edit state, moves the
+    /// cursor to the step's `before_cursor`, marks the document dirty, and shows
+    /// an "Undo" status. No-op (rope/cursor/dirty/status untouched) when the undo
+    /// stack is empty.
+    fn undo(&mut self) {
+        if let Some(idx) = self.history.undo(&mut self.document.text) {
+            self.cursor.char_index = idx;
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, idx);
+            self.document.mark_dirty();
+            self.status = Some(StatusMessage::info("Undo"));
+        }
+        self.sync_viewport();
+    }
+
+    /// Redo the last undone edit. Re-applies the step's forward diff, moves the
+    /// cursor to the step's `after_cursor`, marks the document dirty, and shows a
+    /// "Redo" status. No-op when the redo stack is empty.
+    fn redo(&mut self) {
+        if let Some(idx) = self.history.redo(&mut self.document.text) {
+            self.cursor.char_index = idx;
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, idx);
+            self.document.mark_dirty();
+            self.status = Some(StatusMessage::info("Redo"));
+        }
+        self.sync_viewport();
+    }
+
     fn sync_viewport(&mut self) {
         self.viewport
             .update_for_terminal(self.terminal_size, self.prompt_lines());
@@ -498,5 +566,18 @@ fn previous_conflict_choice(choice: &ConflictChoice) -> ConflictChoice {
         ConflictChoice::Reload => ConflictChoice::Cancel,
         ConflictChoice::Overwrite => ConflictChoice::Reload,
         ConflictChoice::Cancel => ConflictChoice::Overwrite,
+    }
+}
+
+/// Pick the status message after a recording seam: warn on memory-pressure
+/// eviction, otherwise show the usual info `default` message.
+fn history_status(
+    outcome: crate::editor::history::RecordOutcome,
+    default: &str,
+) -> StatusMessage {
+    if outcome.oldest_dropped {
+        StatusMessage::warning("History truncated to free memory")
+    } else {
+        StatusMessage::info(default)
     }
 }

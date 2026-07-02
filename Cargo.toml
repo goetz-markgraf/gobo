@@ -35,6 +35,10 @@ name = "integration_enter_newline"
 path = "tests/integration/enter_newline.rs"
 
 [[test]]
+name = "integration_undo_redo"
+path = "tests/integration/undo_redo.rs"
+
+[[test]]
 name = "unit_buffer"
 path = "tests/unit/buffer.rs"
 
@@ -49,3 +53,7 @@ path = "tests/unit/search.rs"
 [[test]]
 name = "unit_render"
 path = "tests/unit/render.rs"
+
+[[test]]
+name = "unit_history"
+path = "tests/unit/history.rs"

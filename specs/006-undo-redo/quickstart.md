@@ -84,7 +84,7 @@ These exercise the live TUI render path and cannot be repeated deterministically
 
 ## Done-when checklist
 
-- [ ] `cargo build` succeeds.
-- [ ] `cargo test` is fully green, including `unit_history` and `integration_undo_redo`.
-- [ ] Every acceptance scenario row above has a passing automated test.
-- [ ] Manual TUI checks 1–5, 7, 8 behave as described.
+- [X] `cargo build` succeeds.
+- [X] `cargo test` is fully green, including `unit_history` and `integration_undo_redo`.
+- [X] Every acceptance scenario row above has a passing automated test.
+- [ ] Manual TUI checks 1–5, 7, 8 behave as described (requires live terminal; not run in automation).
