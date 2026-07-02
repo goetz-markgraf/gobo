@@ -95,7 +95,7 @@
 ### Implementation for User Story 2
 
 - [ ] T026 [US2] In `handle_editing_command` (`src/app.rs`), clear `selection = None` at the head of the existing `Move{Left,Right,Up,Down}` arms BEFORE performing the motion, so the plain move still uses the existing code path — per contracts/api.md §3 and research.md R6
-- [ ] T027 [US2] In `handle_editing_command` (`src/app.rs`), ensure `Search`, `FindNext`, `Save`, `Resize`, and prompt-mode entries do NOT touch `self.selection` (preserve it) — per contracts/api.md §3 and FR-011; verify Undo/Redo arms clear `selection` (see US3/US4)
+- [ ] T027 [US2] In `handle_editing_command` (`src/app.rs`), ensure `Search`, `FindNext`, `Save`, `Resize`, and prompt-mode entries do NOT touch `self.selection` (preserve it) — per contracts/api.md §3 and FR-011; verify Undo/Redo arms clear `selection` per FR-015 (see US3/US4)
 - [ ] T028 [US2] Verify safeguard for US2: collapse happens before mutation so no edit path can observe a stale selection; read-only mode still collapses cleanly
 
 **Checkpoint**: User Stories 1 AND 2 work independently — selections can be built and collapsed; non-editing commands preserve them.
@@ -112,7 +112,7 @@
 
 - [ ] T029 [P] [US3] Integration test for replace-by-typing a single char over "llo" in "Hallo" → "Hax", selection cleared, cursor after inserted char, in `tests/integration/text_selection.rs`
 - [ ] T030 [P] [US3] Integration test for multi-char replace over a multi-line selection → single atomic `Replace` step, Ctrl-Z restores original in ONE step (FR-007/FR-009), Ctrl-Y re-applies — in `tests/integration/text_selection.rs`
-- [ ] T031 [P] [US3] Integration test for Undo/Redo round-trip around a replace: build selection, replace, Ctrl-Z restores rope+cursor and clears selection, Ctrl-Y re-applies and clears selection — in `tests/integration/text_selection.rs`
+- [ ] T031 [P] [US3] Integration test for Undo/Redo round-trip around a replace: build selection, replace, Ctrl-Z restores rope+cursor and clears selection (FR-015), Ctrl-Y re-applies and clears selection — in `tests/integration/text_selection.rs`
 - [ ] T032 [P] [US3] Edge-case test: with `selection == None` (and `Some` with `is_empty()`), `InsertChar`/`Enter` record the normal `Insert` step and do not record a `Replace` (FR-008) — in `tests/integration/text_selection.rs`
 - [ ] T033 [P] [US3] Edge-case test: read-only document blocks replace-by-typing with a "Read-only: edits are blocked" status, leaving rope/cursor/selection/history unchanged (constitution III) — in `tests/integration/text_selection.rs`
 
@@ -163,7 +163,7 @@
 - [ ] T051 Run the manual terminal UX validation steps from `specs/007-text-selection/quickstart.md` (visual inverse-color highlight, shrink, collapse, replace, delete, multi-line delete, search-preserves-selection) and record results; this supplements but does not replace the automated suite (constitution IV)
 - [ ] T052 [P] Update `architecture.md` to note the new `Selection` type in `cursor.rs`, the `EditStep::Replace` variant in `history.rs`, the `selection` field on `EditingSession`, and the `RenderView.body_lines`/`BodyLine`/`HighlightSpan` shape, keeping the module map current (operational constraint: architecture documented near entry points)
 - [ ] T053 Run a final readability, maintainability, security, and scope review against the Gobo constitution (I–V): confirm clear boundaries (selection state in `cursor`/`app`, mutation in `buffer`, history in `history`, render pure projection in `render`, input mapping isolated in `input`, styling in `main`), no new dependencies, no network/telemetry, destructive deletion guarded by atomic undo (constitution III)
-- [ ] T054 Confirm `SaveConflictPrompt → Reload` clears `selection` as part of the cursor reset, and `Overwrite`/`Cancel` leave `selection` as-is per contracts/api.md §3 (cross-cutting session-state correctness)
+- [ ] T054 Confirm `SaveConflictPrompt → Reload` clears `selection` as part of the cursor reset (FR-011 enumerated trigger), and `Overwrite`/`Cancel` leave `selection` as-is per contracts/api.md §3 (cross-cutting session-state correctness)
 
 ---
 
