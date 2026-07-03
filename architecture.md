@@ -10,6 +10,7 @@
 | TUI rendering | `ratatui` 0.29 | Layout → widgets (`Paragraph`, `Block`). Drawn each loop iteration |
 | Text buffer | `ropey` 1.6 | All text is `Rope`. Every function works in **character indices** (never byte offsets) |
 | Unicode helpers | `unicode-segmentation`, `unicode-width` | Grapheme-aware visual column calculations |
+| Clipboard I/O | `arboard` 3.6 | Cross-platform system clipboard (macOS/Linux) |
 | Temp-files (tests) | `tempfile` 3.20 | Integration tests use `tempdir()` for isolated file systems |
 
 ## Module Map
@@ -24,7 +25,8 @@ src/
 └── editor/          pure editor sub-modules (stateless functions where possible)
     ├── mod.rs
     ├── buffer.rs    Rope mutations: insert / remove / delete / replace_range; line helpers
-    ├── cursor.rs    CursorState + motion functions + viewport clamping + Selection type + MoveSelect* selection motions
+    ├── clipboard.rs NEW: clipboard read/write (arboard), 1 MB size cap (FR-013), text-only predicate (FR-009)
+    ├── cursor.rs    CursorState + motion functions + viewport clamping + Selection type + MoveSelect* selection motions + grapheme_at_cursor (spec 009)
     ├── input.rs     KeyEvent → EditorCommand mapping (key bindings table; incl. Shift+arrows → MoveSelect*)
     ├── render.rs    EditingSession → RenderView; viewport slicing, column clipping, selection highlight spans
     ├── search.rs    SearchState: case-insensitive find_next() with wrap-around
@@ -145,8 +147,9 @@ Each file groups tests by topic with a shared helper function at the top:
 |---|---|
 | Arrows | `MoveLeft/Right/Up/Down` |
 | Shift+Arrows | `MoveSelectLeft/Right/Up/Down` (seed/extend selection; spec 007) |
-| Ctrl-S | `Save` |
-| Ctrl-S | `Save` |
+| Ctrl-C | `Copy` |
+| Ctrl-X | `Cut` |
+| Ctrl-V | `Paste` |
 | Ctrl-Q | `Quit` |
 | Ctrl-F | `Search` |
 | Ctrl-G | `FindNext` |

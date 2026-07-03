@@ -181,3 +181,56 @@ fn seed_anchor(sel: &mut Option<Selection>, cursor: &CursorState) {
         });
     }
 }
+
+// ---- Copy/Cut without selection (spec 009, FR-001/FR-002/FR-003) ------------
+// When no (non-empty) selection is active, Ctrl-C/Ctrl-X operate on a single
+// grapheme cluster. This resolves *which* grapheme: the first complete grapheme
+// starting at the cursor, or — when the cursor sits past the last char
+// (`char_index == len_chars`) — the trailing grapheme (FR-003: "am
+// Dokumentende das letzte Zeichen"). Graphemes never span a line break (UAX #29),
+// so the window is bounded to the current line so even huge documents stay cheap.
+
+/// Resolve the grapheme cluster a no-selection copy/cut operates on
+/// (spec 009 FR-001/FR-002/FR-003).
+///
+/// Returns `(grapheme_text, start_char_index)` where `start_char_index` is the
+/// rope char index of the first char of that grapheme, or `None` for an empty
+/// document. The deletion range is `start..start + grapheme.chars().count()`.
+pub fn grapheme_at_cursor(text: &Rope, char_index: usize) -> Option<(String, usize)> {
+    let len = text.len_chars();
+    let idx = buffer::clamp_char_index(text, char_index);
+    if len == 0 {
+        return None;
+    }
+    // Cursor on/past the last char: use the trailing grapheme (FR-003).
+    if idx >= len {
+        return trailing_grapheme(text);
+    }
+    // Otherwise the first grapheme starting at `idx`. Bound the window to the
+    // rest of the current line (graphemes can't cross a line break).
+    let line = buffer::line_of_char(text, idx);
+    let line_end = buffer::line_start_char(text, line) + buffer::line_len_chars(text, line);
+    let within = line_end.min(len);
+    let window: String = text.slice(idx..within).to_string();
+    let grapheme = window.graphemes(true).next()?;
+    Some((grapheme.to_string(), idx))
+}
+
+/// The trailing grapheme of a non-empty document, as `(text, start_char_index)`.
+/// Bounded to the last line since graphemes don't cross line breaks.
+fn trailing_grapheme(text: &Rope) -> Option<(String, usize)> {
+    let len = text.len_chars();
+    if len == 0 {
+        return None;
+    }
+    let last_line = buffer::line_of_char(text, len);
+    let line_start = buffer::line_start_char(text, last_line);
+    let window: String = text.slice(line_start..len).to_string();
+    let mut start_char = 0usize; // char offset within the window
+    let mut chosen: Option<(String, usize)> = None;
+    for grapheme in window.graphemes(true) {
+        chosen = Some((grapheme.to_string(), line_start + start_char));
+        start_char += grapheme.chars().count();
+    }
+    chosen
+}

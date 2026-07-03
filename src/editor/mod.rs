@@ -2,6 +2,7 @@
 //! and supporting behaviors stay easy to test independently.
 
 pub mod buffer;
+pub mod clipboard;
 pub mod cursor;
 pub mod history;
 pub mod input;

@@ -2,7 +2,9 @@
 
 use crate::document::{DocumentBuffer, DocumentError, SaveResult};
 use crate::editor::buffer;
+use crate::editor::clipboard;
 use crate::editor::cursor::{self, CursorState, Selection};
+use crate::editor::history::EditStep;
 use crate::editor::input::EditorCommand;
 use crate::editor::render::{self, RenderView, TerminalSize, ViewportState};
 use crate::editor::search::SearchState;
@@ -189,6 +191,9 @@ impl EditingSession {
             EditorCommand::Cancel | EditorCommand::FindNext => {}
             EditorCommand::Undo => self.undo(),
             EditorCommand::Redo => self.redo(),
+            EditorCommand::Copy => self.copy(),
+            EditorCommand::Cut => self.cut(),
+            EditorCommand::Paste => self.paste(),
             // FR-011: Search/FindNext/Save/Quit and non-editing commands preserve the
             // selection; Undo/Redo clear it (see `undo`/`redo`).
             EditorCommand::NextChoice
@@ -235,6 +240,7 @@ impl EditingSession {
                 search.query.pop();
                 self.status = Some(StatusMessage::info("Search query updated"));
             }
+            EditorCommand::Copy => self.copy(),
             EditorCommand::Enter => {
                 if search.query.is_empty() {
                     self.status = Some(StatusMessage::info("Search cancelled"));
@@ -295,6 +301,8 @@ impl EditingSession {
             | EditorCommand::Search
             | EditorCommand::Undo
             | EditorCommand::Redo
+            | EditorCommand::Cut
+            | EditorCommand::Paste
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -541,6 +549,143 @@ impl EditingSession {
         self.selection = None;
     }
 
+    // ---- Clipboard: Copy (spec 009, FR-001) -----------------------------------
+    /// Ctrl-C: write selection or single grapheme to OS clipboard. Buffer,
+    /// cursor, and selection are **not** modified (FR-001). Safe in read-only.
+    fn copy(&mut self) {
+        let Some((text, _)) = self.clipboard_source() else {
+            self.status = Some(StatusMessage::info("Nothing to copy"));
+            return;
+        };
+        let n = text.chars().count();
+        match clipboard::write_text(&text) {
+            Ok(()) => self.status = Some(StatusMessage::info(format!("Copied {n} chars"))),
+            Err(msg) => self.status = Some(StatusMessage::warning(format!("Failed to copy: {msg}"))),
+        }
+        // copy never clears the selection (FR-001).
+    }
+
+    // ---- Clipboard: Cut (spec 009, FR-002/FR-003/FR-005) ----------------------
+    /// Ctrl-X: write selection or single grapheme to OS clipboard, then delete
+    /// it from the buffer in **one atomic undo step** (FR-005). Blocked in
+    /// read-only (constitution III). Clipboard is NOT updated if the OS write
+    /// fails, and the buffer is NOT mutated (fail-safe, FR-012).
+    fn cut(&mut self) {
+        if self.document.is_read_only() {
+            self.status = Some(StatusMessage::warning("Read-only: edits are blocked"));
+            return;
+        }
+        let Some((text, start)) = self.clipboard_source() else {
+            self.status = Some(StatusMessage::info("Nothing to cut"));
+            return;
+        };
+        let n = text.chars().count();
+        // Write clipboard first; don't mutate buffer if the OS write fails.
+        if let Err(msg) = clipboard::write_text(&text) {
+            self.status = Some(StatusMessage::warning(msg));
+            return;
+        }
+        if let Some(sel) = self.selection
+            && !sel.is_empty()
+        {
+            // Cut with selection — one atomic Replace (FR-002/FR-010).
+            let range = sel.range();
+            let removed: String = self.document.text.slice(range.start..range.end).to_string();
+            let next = buffer::replace_range(&mut self.document.text, range.clone(), "");
+            self.cursor.char_index = next;
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
+            self.document.mark_dirty();
+            let step = EditStep::Replace {
+                index: range.start,
+                removed,
+                inserted: String::new(),
+            };
+            let outcome = self.history.record(step);
+            self.selection = None;
+            self.status = Some(cut_status(outcome, n));
+        } else {
+            // Cut single grapheme — one atomic Delete (FR-003/FR-011).
+            let end = start + n;
+            let next = buffer::replace_range(&mut self.document.text, start..end, "");
+            self.cursor.char_index = next; // stays at `start` (next == start)
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
+            self.document.mark_dirty();
+            let step = EditStep::Delete { index: start, text };
+            let outcome = self.history.record(step);
+            self.status = Some(cut_status(outcome, n));
+        }
+    }
+
+    // ---- Clipboard: Paste (spec 009, FR-004/FR-005/FR-007/FR-009) -------------
+    /// Ctrl-V: insert OS clipboard text at cursor, or replace active selection.
+    /// Silent no-op when clipboard is empty or non-text (FR-009). Warns and
+    /// aborts when clipboard content exceeds 1 MB (FR-013). One atomic undo step
+    /// (FR-005). Cursor lands after the inserted text; selection cleared (FR-007).
+    fn paste(&mut self) {
+        let clip = match clipboard::read_text() {
+            None => return, // binary / empty / unavailable — silent no-op (FR-009)
+            Some(t) => t,
+        };
+        if clip.is_empty() {
+            return; // empty string — silent no-op (FR-009)
+        }
+        if !clipboard::fits_size_limit(clip.len()) {
+            self.status = Some(StatusMessage::warning(
+                "Clipboard content too large (>1 MB)",
+            ));
+            return;
+        }
+        if self.document.is_read_only() {
+            self.status = Some(StatusMessage::warning("Read-only: edits are blocked"));
+            return;
+        }
+        let n = clip.chars().count();
+        if let Some(sel) = self.selection
+            && !sel.is_empty()
+        {
+            // Paste over selection — one atomic Replace (FR-004/FR-005).
+            let range = sel.range();
+            let removed: String = self.document.text.slice(range.start..range.end).to_string();
+            let next = buffer::replace_range(&mut self.document.text, range.clone(), &clip);
+            self.cursor.char_index = next;
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
+            self.document.mark_dirty();
+            let step = EditStep::Replace {
+                index: range.start,
+                removed,
+                inserted: clip,
+            };
+            let outcome = self.history.record(step);
+            self.selection = None;
+            self.status = Some(paste_status(outcome, n));
+        } else {
+            // Paste at cursor — one atomic Insert (FR-004/FR-005).
+            let index = self.cursor.char_index;
+            let next = buffer::insert_text(&mut self.document.text, index, &clip);
+            self.cursor.char_index = next;
+            self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
+            self.document.mark_dirty();
+            let step = EditStep::Insert { index, text: clip };
+            let outcome = self.history.record(step);
+            self.selection = None; // FR-007: clear any residual empty selection
+            self.status = Some(paste_status(outcome, n));
+        }
+    }
+
+    /// The text (and its start char index) that a no-selection copy/cut operates
+    /// on: the active selection range when non-empty, else the single grapheme
+    /// cluster at/after the cursor (spec 009, FR-001/FR-002/FR-003).
+    fn clipboard_source(&self) -> Option<(String, usize)> {
+        if let Some(sel) = self.selection
+            && !sel.is_empty()
+        {
+            let r = sel.range();
+            let text = self.document.text.slice(r.start..r.end).to_string();
+            return Some((text, r.start));
+        }
+        cursor::grapheme_at_cursor(&self.document.text, self.cursor.char_index)
+    }
+
     fn begin_search(&mut self) {
         self.mode = SessionMode::SearchInput;
         self.search.get_or_insert_with(SearchState::default);
@@ -695,5 +840,29 @@ fn history_status(
         StatusMessage::warning("History truncated to free memory")
     } else {
         StatusMessage::info(default)
+    }
+}
+
+/// Status for a completed cut; warns on history eviction.
+fn cut_status(
+    outcome: crate::editor::history::RecordOutcome,
+    n_chars: usize,
+) -> StatusMessage {
+    if outcome.oldest_dropped {
+        StatusMessage::warning("History truncated to free memory")
+    } else {
+        StatusMessage::info(format!("Cut {n_chars} chars"))
+    }
+}
+
+/// Status for a completed paste; warns on history eviction.
+fn paste_status(
+    outcome: crate::editor::history::RecordOutcome,
+    n_chars: usize,
+) -> StatusMessage {
+    if outcome.oldest_dropped {
+        StatusMessage::warning("History truncated to free memory")
+    } else {
+        StatusMessage::info(format!("Pasted {n_chars} chars"))
     }
 }

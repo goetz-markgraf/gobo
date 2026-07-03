@@ -18,8 +18,8 @@
 
 **Purpose**: Add dependency and create the clipboard module scaffold.
 
-- [ ] T001 Add `arboard = "3"` to `[dependencies]` in Cargo.toml
-- [ ] T002 Create `src/editor/clipboard.rs` with module declaration in `src/editor/mod.rs`
+- [X] T001 Add `arboard = "3"` to `[dependencies]` in Cargo.toml
+- [X] T002 Create `src/editor/clipboard.rs` with module declaration in `src/editor/mod.rs`
 
 ---
 
@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 [P] Implement `clipboard::read_from_system_clipboard() -> Option<String>` in `src/editor/clipboard.rs`
-- [ ] T004 [P] Implement `clipboard::write_to_system_clipboard(text: &str) -> Result<(), String>` in `src/editor/clipboard.rs`
-- [ ] T005 [P] Implement `is_text_only(content: &[u8]) -> bool` text-filter helper in `src/editor/clipboard.rs`
-- [ ] T006 Add 1 MB size-limit enforcement to both read and write boundaries with status message for rejections
+- [X] T003 [P] Implement `clipboard::read_from_system_clipboard() -> Option<String>` in `src/editor/clipboard.rs`
+- [X] T004 [P] Implement `clipboard::write_to_system_clipboard(text: &str) -> Result<(), String>` in `src/editor/clipboard.rs`
+- [X] T005 [P] Implement `is_text_only(content: &[u8]) -> bool` text-filter helper in `src/editor/clipboard.rs`
+- [X] T006 Add 1 MB size-limit enforcement to both read and write boundaries with status message for rejections
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 
@@ -46,11 +46,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Derive two new `EditorCommand` variants (`Copy`, `Cut`, `Paste`) in `src/editor/input.rs`
-- [ ] T008 [P] [US1] Add `(Ctrl, Char('c')) => Some(EditorCommand::Copy)` binding in `src/editor/input.rs::map_key_event`
-- [ ] T009 [P] [US1] Implement copy handler: if selection exists → copy selected text; else → copy first grapheme cluster after cursor (uses `unicode-segmentation`) in `src/app.rs::handle_editing_command`
-- [ ] T010 [US1] Add status message `"Copied {N} chars"` on success via `StatusMessage::info` in the same handler
-- [ ] T011 [US1] Wire clipboard write call, pass source text, handle error with warning `"Failed to copy: {msg}"`
+- [X] T007 [P] [US1] Derive two new `EditorCommand` variants (`Copy`, `Cut`, `Paste`) in `src/editor/input.rs`
+- [X] T008 [P] [US1] Add `(Ctrl, Char('c')) => Some(EditorCommand::Copy)` binding in `src/editor/input.rs::map_key_event`
+- [X] T009 [P] [US1] Implement copy handler: if selection exists → copy selected text; else → copy first grapheme cluster after cursor (uses `unicode-segmentation`) in `src/app.rs::handle_editing_command`
+- [X] T010 [US1] Add status message `"Copied {N} chars"` on success via `StatusMessage::info` in the same handler
+- [X] T011 [US1] Wire clipboard write call, pass source text, handle error with warning `"Failed to copy: {msg}"`
 
 **Checkpoint**: User Story 1 (Copy) should be fully functional and testable independently.
 
@@ -64,10 +64,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [P] [US2] Add `(Ctrl, Char('x')) => Some(EditorCommand::Cut)` binding in `src/editor/input.rs::map_key_event`
-- [ ] T013 [US2] Implement cut-no-selection: get first grapheme at cursor via `unicode-segmentation`, write to clipboard (same as US1), delete from buffer, record single `EditStep::Delete`, show `"Cut {N} chars"` in `src/app.rs::handle_editing_command`
-- [ ] T014 [US2] Handle end-of-document edge: when cursor is at last char or past it, delete the trailing character (including `\n`)
-- [ ] T015 [US2] Handle "nothing to cut" case → no grapheme after cursor → show `"Nothing to cut"` status
+- [X] T012 [P] [US2] Add `(Ctrl, Char('x')) => Some(EditorCommand::Cut)` binding in `src/editor/input.rs::map_key_event`
+- [X] T013 [US2] Implement cut-no-selection: get first grapheme at cursor via `unicode-segmentation`, write to clipboard (same as US1), delete from buffer, record single `EditStep::Delete`, show `"Cut {N} chars"` in `src/app.rs::handle_editing_command`
+- [X] T014 [US2] Handle end-of-document edge: when cursor is at last char or past it, delete the trailing character (including `\n`)
+- [X] T015 [US2] Handle "nothing to cut" case → no grapheme after cursor → show `"Nothing to cut"` status
 
 **Checkpoint**: User Stories 1 AND 2 should both work independently.
 
@@ -81,8 +81,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Implement cut-with-selection: source = selected range text, write to clipboard via arboard, record single `EditStep::Replace { removed, inserted: "" }`, clear selection → same handler extension as US2 in `src/app.rs::handle_editing_command`
-- [ ] T017 [US3] Ensure all newlines and special characters within selected range are preserved in the edit step (constitution III — data integrity)
+- [X] T016 [US3] Implement cut-with-selection: source = selected range text, write to clipboard via arboard, record single `EditStep::Replace { removed, inserted: "" }`, clear selection → same handler extension as US2 in `src/app.rs::handle_editing_command`
+- [X] T017 [US3] Ensure all newlines and special characters within selected range are preserved in the edit step (constitution III — data integrity)
 
 **Checkpoint**: All three user stories (Copy, Cut with/without selection) should now be independently functional.
 
@@ -96,10 +96,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T018 [P] [US4] Add `(Ctrl, Char('v')) => Some(EditorCommand::Paste)` binding in `src/editor/input.rs::map_key_event`
-- [ ] T019 [US4] Implement paste-no-selection: call `clipboard::read_from_system_clipboard()`, if `None` or empty → silent no-op (no status, no undo); if >1 MB → `"Clipboard content too large (>1 MB)"`; else → insert at cursor via existing buffer/insert machinery
-- [ ] T020 [US4] Move cursor to end of inserted text; clear any selection; show `"Pasted {N} chars"` on success
-- [ ] T021 [US4] Handle binary clipboard content → `None` from arboard → same as empty clipboard (silent no-op)
+- [X] T018 [P] [US4] Add `(Ctrl, Char('v')) => Some(EditorCommand::Paste)` binding in `src/editor/input.rs::map_key_event`
+- [X] T019 [US4] Implement paste-no-selection: call `clipboard::read_from_system_clipboard()`, if `None` or empty → silent no-op (no status, no undo); if >1 MB → `"Clipboard content too large (>1 MB)"`; else → insert at cursor via existing buffer/insert machinery
+- [X] T020 [US4] Move cursor to end of inserted text; clear any selection; show `"Pasted {N} chars"` on success
+- [X] T021 [US4] Handle binary clipboard content → `None` from arboard → same as empty clipboard (silent no-op)
 
 **Checkpoint**: User Stories 1–4 should now all be independently functional.
 
@@ -113,7 +113,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T022 [US5] Extend paste handler: if non-empty selection exists → use `EditStep::Replace { removed: selected, inserted: clipboard_text }` instead of `Insert`, clear selection, land cursor after inserted text — extension to `src/app.rs::handle_editing_command`
+- [X] T022 [US5] Extend paste handler: if non-empty selection exists → use `EditStep::Replace { removed: selected, inserted: clipboard_text }` instead of `Insert`, clear selection, land cursor after inserted text — extension to `src/app.rs::handle_editing_command`
 
 **Checkpoint**: All five user stories should now be independently functional.
 
@@ -125,18 +125,18 @@
 
 ### Test file creation
 
-- [ ] T023 [P] Create `tests/integration/clipboard_features.rs` skeleton with `[[test]]` entry in Cargo.toml
-- [ ] T024 [US1] Write integration test: copy with selection — select "Welt", Ctrl-C → verify clipboard content via arboard or mock; text unchanged
-- [ ] T025 [US1] Write integration test: copy without selection (single char) — cursor between chars, Ctrl-C → verify single grapheme in clipboard
-- [ ] T026 [US2] Write integration test: cut without selection — cursor between "o" and "W", Ctrl-X → verify deletion + clipboard content
-- [ ] T027 [US3] Write integration test: cut with multi-line selection — select across lines, Ctrl-X → verify text removal preserves newlines; undo restores
-- [ ] T028 [US3] Write integration test: cut then undo → verify clipboard persists after undo (FR-006)
-- [ ] T029 [US4] Write integration test: paste without selection — clipboard has "Test", cursor mid-text, Ctrl-V → verify insertion + cursor position
-- [ ] T030 [US5] Write integration test: paste over selection — select text, clipboard has replacement, Ctrl-V → verify replacement + undo restores
-- [ ] T031 Empty clipboard paste → silent no-op (no status, no undo entry)
-- [ ] T032 Large clipboard (>1 MB rejection) — synthetic large text, paste → verify warning message and no buffer change
-- [ ] T033 Binary clipboard content → `None` from arboard → silent no-op
-- [ ] T034 Multi-line cut/restore — multi-line selection, Ctrl-X, undo → verify full restoration of all lines
+- [X] T023 [P] Create `tests/integration/clipboard_features.rs` skeleton with `[[test]]` entry in Cargo.toml
+- [X] T024 [US1] Write integration test: copy with selection — select "Welt", Ctrl-C → verify clipboard content via arboard or mock; text unchanged
+- [X] T025 [US1] Write integration test: copy without selection (single char) — cursor between chars, Ctrl-C → verify single grapheme in clipboard
+- [X] T026 [US2] Write integration test: cut without selection — cursor between "o" and "W", Ctrl-X → verify deletion + clipboard content
+- [X] T027 [US3] Write integration test: cut with multi-line selection — select across lines, Ctrl-X → verify text removal preserves newlines; undo restores
+- [X] T028 [US3] Write integration test: cut then undo → verify clipboard persists after undo (FR-006)
+- [X] T029 [US4] Write integration test: paste without selection — clipboard has "Test", cursor mid-text, Ctrl-V → verify insertion + cursor position
+- [X] T030 [US5] Write integration test: paste over selection — select text, clipboard has replacement, Ctrl-V → verify replacement + undo restores
+- [X] T031 Empty clipboard paste → silent no-op (no status, no undo entry)
+- [X] T032 Large clipboard (>1 MB rejection) — synthetic large text, paste → verify warning message and no buffer change
+- [X] T033 Binary clipboard content → `None` from arboard → silent no-op
+- [X] T034 Multi-line cut/restore — multi-line selection, Ctrl-X, undo → verify full restoration of all lines
 
 ---
 
@@ -144,11 +144,11 @@
 
 **Purpose**: Final verification against constitution and quickstart validation guide.
 
-- [ ] T035 [P] Verify read-write symmetry: copy content exactly matches text copied; cut removed text equals clipboard written
-- [ ] T036 [P] Ensure no grapheme cluster boundaries are violated when selecting/cutting single characters (use `unicode-segmentation::GraphemeClusterIter`)
-- [ ] T037 Run quickstart.md validation scenarios (Scenarios 1–9) against implementation; fix any mismatches
-- [ ] T038 Review readability and maintainability of all touched files: verify clear boundaries per constitution II (`clipboard.rs` — I/O only, `input.rs` — bindings only, `app.rs` — dispatch only); simplify names where needed
-- [ ] T039 Final constitution compliance review: readability (one new module), maintainability (bounded changes), security (no internal clipboard cache), verification (tests cover all feature paths), scope (single dependency, focused feature)
+- [X] T035 [P] Verify read-write symmetry: copy content exactly matches text copied; cut removed text equals clipboard written
+- [X] T036 [P] Ensure no grapheme cluster boundaries are violated when selecting/cutting single characters (use `unicode-segmentation::GraphemeClusterIter`)
+- [X] T037 Run quickstart.md validation scenarios (Scenarios 1–9) against implementation; fix any mismatches
+- [X] T038 Review readability and maintainability of all touched files: verify clear boundaries per constitution II (`clipboard.rs` — I/O only, `input.rs` — bindings only, `app.rs` — dispatch only); simplify names where needed
+- [X] T039 Final constitution compliance review: readability (one new module), maintainability (bounded changes), security (no internal clipboard cache), verification (tests cover all feature paths), scope (single dependency, focused feature)
 
 ---
 
