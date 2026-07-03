@@ -208,3 +208,28 @@ fn render_view_empty_selection_emits_no_highlight() {
     let view = session.render_view();
     assert!(view.body_lines[0].highlights.is_empty());
 }
+
+// ---- Spec 008 / User Story 1: render draws the cursor on the empty trailing line ----
+// `render_view` derives `cursor_y` from `buffer::line_of_char` and `cursor_x`
+// from `cursor::visual_column` (which itself uses `line_of_char`), so the
+// `line_of_char` fix cascades to the drawn cursor with no render-side change.
+
+/// At end-of-doc of a file ending in `\n`, `render_view` draws the cursor at
+/// column 0 of the empty trailing line -- not at the end of the `abc` line
+/// (FR-001). The next insert therefore lands where the cursor is shown.
+#[test]
+fn render_view_cursor_at_doc_end_after_trailing_newline_is_on_empty_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("trailing.txt");
+    std::fs::write(&path, "abc\n").unwrap();
+    std::mem::forget(dir);
+    let mut session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
+    // Cursor exactly behind the trailing newline (end of document).
+    session.cursor.char_index = 4;
+    session.cursor.preferred_column = 0;
+
+    let view = session.render_view();
+
+    assert_eq!(view.cursor_y, 1, "cursor should be on the empty trailing line (line 1)");
+    assert_eq!(view.cursor_x, 0, "cursor column should be 0 of the empty trailing line");
+}

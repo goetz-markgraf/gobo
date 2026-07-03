@@ -44,12 +44,28 @@ pub fn line_count(text: &Rope) -> usize {
 }
 
 pub fn line_of_char(text: &Rope, char_index: usize) -> usize {
-    if text.len_chars() == 0 {
+    let n = text.len_chars();
+    if n == 0 {
         return 0;
     }
 
     let char_index = clamp_char_index(text, char_index);
-    let probe = if char_index == text.len_chars() {
+
+    // A cursor at the very end of a document that ends with `\n` sits on the
+    // empty trailing line created by that newline: ropey models `"abc\n"` as
+    // two lines (`"abc\n"`, `""`). `char_to_line` cannot represent an index
+    // equal to `len_chars()` because that index is past the last character, so
+    // the probe below falls back to `char_index - 1`; when that probed
+    // character *is* the trailing `\n`, ropey's `char_to_line` returns the
+    // line that *contains* the newline rather than the following empty line,
+    // which draws the cursor one line too high. Step forward one line in
+    // exactly that end-of-document case so the displayed line matches the
+    // logical insert position. (Spec 008, FR-001/FR-002/FR-006.)
+    if char_index == n && text.char(n - 1) == '\n' {
+        return text.char_to_line(n - 1) + 1;
+    }
+
+    let probe = if char_index == n {
         char_index.saturating_sub(1)
     } else {
         char_index

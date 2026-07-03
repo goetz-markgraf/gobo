@@ -18,8 +18,8 @@
 
 **Purpose**: Confirm existing project state; no new project scaffolding required (single-binary Rust editor already created, no new dependencies).
 
-- [ ] T001 Verify Rust toolchain and `cargo test` baseline is green on branch `008-fix-trailing-newline-cursor` before any change (run `cargo test` from repo root)
-- [ ] T002 [P] Read `src/editor/buffer.rs` `line_of_char`, `cursor.rs` `visual_column`/`move_right`/`move_left`, and `render.rs` `render_view` to confirm they match the contract in `specs/008-fix-trailing-newline-cursor/contracts/cursor-line-mapping.md` (no structural assumptions drift)
+- [X] T001 Verify Rust toolchain and `cargo test` baseline is green on branch `008-fix-trailing-newline-cursor` before any change (run `cargo test` from repo root)
+- [X] T002 [P] Read `src/editor/buffer.rs` `line_of_char`, `cursor.rs` `visual_column`/`move_right`/`move_left`, and `render.rs` `render_view` to confirm they match the contract in `specs/008-fix-trailing-newline-cursor/contracts/cursor-line-mapping.md` (no structural assumptions drift)
 
 ---
 
@@ -27,7 +27,7 @@
 
 **Purpose**: Reproduce the bug with a failing test that anchors the fix; no user story can be considered complete until this regression test exists.
 
-- [ ] T003 Add a failing unit test in `tests/unit/buffer.rs` that asserts `line_of_char("abc\n", 4) == 1`, `line_of_char("abc\n\n", 5) == 2`, `line_of_char("abc\n\n\n", 6) == 3`, and `line_of_char("\n", 1) == 1` (the `[BUG]` rows from `research.md`), guarded by a `// # Fix Trailing Newline Cursor Position` marker; confirm it FAILS (`cargo test --test unit buffer`) before any implementation
+- [X] T003 Add a failing unit test in `tests/unit/buffer.rs` that asserts `line_of_char("abc\n", 4) == 1`, `line_of_char("abc\n\n", 5) == 2`, `line_of_char("abc\n\n\n", 6) == 3`, and `line_of_char("\n", 1) == 1` (the `[BUG]` rows from `research.md`), guarded by a `// # Fix Trailing Newline Cursor Position` marker; confirm it FAILS (`cargo test --test unit buffer`) before any implementation
 
 **Checkpoint**: Bug reproduced by a failing test - implementation may begin
 
@@ -43,16 +43,16 @@
 
 > **NOTE**: Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T004 [P] [US1] Add unit tests in `tests/unit/buffer.rs` covering `line_of_char` end-of-doc trailing-newline cases per the corrected mapping table in `specs/008-fix-trailing-newline-cursor/data-model.md`: `"abc\n"`→1 at idx 4, `"abc\n\n"`→2 at idx 5, `"abc\n\n\n"`→3 at idx 6, `"\n"`→1 at idx 1 (FR-006)
-- [ ] T005 [P] [US1] Add unit tests in `tests/unit/cursor.rs` asserting `visual_column` is `0` (start of the empty trailing line) when the cursor is at `len_chars()` after a trailing `\n` for `src/editor/cursor.rs`, and that `move_right` to end-of-doc then `visual_column`/line yields the empty trailing line (FR-002, FR-003)
-- [ ] T006 [P] [US1] Add unit/integration test in `tests/unit/buffer.rs` (or a render unit test) verifying the cursor `(x,y)` produced via `line_of_char` for `"abc\n"` at end-of-doc is the empty trailing line, so `render::render_view` (src/editor/render.rs) draws the cursor at the correct line (FR-001)
+- [X] T004 [P] [US1] Add unit tests in `tests/unit/buffer.rs` covering `line_of_char` end-of-doc trailing-newline cases per the corrected mapping table in `specs/008-fix-trailing-newline-cursor/data-model.md`: `"abc\n"`→1 at idx 4, `"abc\n\n"`→2 at idx 5, `"abc\n\n\n"`→3 at idx 6, `"\n"`→1 at idx 1 (FR-006)
+- [X] T005 [P] [US1] Add unit tests in `tests/unit/cursor.rs` asserting `visual_column` is `0` (start of the empty trailing line) when the cursor is at `len_chars()` after a trailing `\n` for `src/editor/cursor.rs`, and that `move_right` to end-of-doc then `visual_column`/line yields the empty trailing line (FR-002, FR-003)
+- [X] T006 [P] [US1] Add unit/integration test in `tests/unit/buffer.rs` (or a render unit test) verifying the cursor `(x,y)` produced via `line_of_char` for `"abc\n"` at end-of-doc is the empty trailing line, so `render::render_view` (src/editor/render.rs) draws the cursor at the correct line (FR-001)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] In `src/editor/buffer.rs` `line_of_char`, add the end-of-document trailing-newline branch exactly per the contract `specs/008-fix-trailing-newline-cursor/contracts/cursor-line-mapping.md`: when `len_chars() != 0` and `idx == len_chars()` and `text.char(len_chars()-1) == '\n'`, return `text.char_to_line(len_chars()-1) + 1`; include a comment explaining the ropey `\n`/end-of-document quirk (depends on T004–T006 failing tests)
-- [ ] T008 [US1] Confirm the fix cascades without changes to `src/editor/cursor.rs` (`visual_column`) and `src/editor/render.rs` (`render_view`) by re-running `cargo test --test unit buffer cursor`; do not modify those consumers unless a test reveals otherwise
-- [ ] T009 [US1] Add a pure/total and monotonicity sanity assertion in `tests/unit/buffer.rs`: `line_of_char` is non-decreasing across `0..=len_chars()` for `"abc\n"` and never panics for any in-range index (FR-005 regression safety)
-- [ ] T010 [US1] Review `src/editor/buffer.rs` for readability and maintainability per constitution principle I/II: keep the branch minimal, named/justified in a comment, one reason to change in `line_of_char`
+- [X] T007 [US1] In `src/editor/buffer.rs` `line_of_char`, add the end-of-document trailing-newline branch exactly per the contract `specs/008-fix-trailing-newline-cursor/contracts/cursor-line-mapping.md`: when `len_chars() != 0` and `idx == len_chars()` and `text.char(len_chars()-1) == '\n'`, return `text.char_to_line(len_chars()-1) + 1`; include a comment explaining the ropey `\n`/end-of-document quirk (depends on T004–T006 failing tests)
+- [X] T008 [US1] Confirm the fix cascades without changes to `src/editor/cursor.rs` (`visual_column`) and `src/editor/render.rs` (`render_view`) by re-running `cargo test --test unit buffer cursor`; do not modify those consumers unless a test reveals otherwise
+- [X] T009 [US1] Add a pure/total and monotonicity sanity assertion in `tests/unit/buffer.rs`: `line_of_char` is non-decreasing across `0..=len_chars()` for `"abc\n"` and never panics for any in-range index (FR-005 regression safety)
+- [X] T010 [US1] Review `src/editor/buffer.rs` for readability and maintainability per constitution principle I/II: keep the branch minimal, named/justified in a comment, one reason to change in `line_of_char`
 
 **Checkpoint**: Cursor at end-of-doc after a trailing `\n` is drawn at column 0 of the empty trailing line, matching the logical insert position (MVP delivered)
 
@@ -66,14 +66,14 @@
 
 ### Tests for User Story 2 (REQUIRED) ⚠️
 
-- [ ] T011 [P] [US2] Add regression unit tests in `tests/unit/buffer.rs` for the already-correct cases that MUST NOT change under this fix: `"abc"` (no newline) idx 3 → line 0; `""` (empty) idx 0 → line 0; `"abc\n"` idx 3 (on `\n`, not end) → line 0 (FR-005)
-- [ ] T012 [P] [US2] Add unit tests in `tests/unit/cursor.rs` for `move_left` from end-of-doc (`len_chars()`) back over the trailing `\n` landing on line 0 at the end of `abc` for `"abc\n"` (FR-004), and `move_right` from index 3 to `len_chars()` moving the cursor to the empty trailing line (FR-004)
-- [ ] T013 [P] [US2] Add an integration-level regression guard (or extend an existing test in `tests/integration/`) verifying an insert at the end of the `abc` line for `"abc\n"` keeps the trailing `\n` intact and yields `"abcx\n"` (FR-003, FR-007 persistence untouched)
+- [X] T011 [P] [US2] Add regression unit tests in `tests/unit/buffer.rs` for the already-correct cases that MUST NOT change under this fix: `"abc"` (no newline) idx 3 → line 0; `""` (empty) idx 0 → line 0; `"abc\n"` idx 3 (on `\n`, not end) → line 0 (FR-005)
+- [X] T012 [P] [US2] Add unit tests in `tests/unit/cursor.rs` for `move_left` from end-of-doc (`len_chars()`) back over the trailing `\n` landing on line 0 at the end of `abc` for `"abc\n"` (FR-004), and `move_right` from index 3 to `len_chars()` moving the cursor to the empty trailing line (FR-004)
+- [X] T013 [P] [US2] Add an integration-level regression guard (or extend an existing test in `tests/integration/`) verifying an insert at the end of the `abc` line for `"abc\n"` keeps the trailing `\n` intact and yields `"abcx\n"` (FR-003, FR-007 persistence untouched)
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Verify existing `src/editor/cursor.rs` motions (`move_right`/`move_left`) and the insert path require no change; only confirm the corrected `line_of_char` keeps these passing (depends on T011–T013 tests)
-- [ ] T015 [US2] If any test in T011–T013 fails, scope the smallest possible fix strictly within `src/editor/buffer.rs` (do not alter `char_index` semantics or persistence); document any deviation in this tasks.md before implementing
+- [X] T014 [US2] Verify existing `src/editor/cursor.rs` motions (`move_right`/`move_left`) and the insert path require no change; only confirm the corrected `line_of_char` keeps these passing (depends on T011–T013 tests)
+- [X] T015 [US2] If any test in T011–T013 fails, scope the smallest possible fix strictly within `src/editor/buffer.rs` (do not alter `char_index` semantics or persistence); document any deviation in this tasks.md before implementing
 
 **Checkpoint**: Cursor behavior before the trailing `\n` is unchanged (no regression); navigation across the trailing `\n` is consistent with US1
 
@@ -83,10 +83,10 @@
 
 **Purpose**: Final verification that the localized fix is complete, edge cases covered, and the constitution gates pass.
 
-- [ ] T016 Run the quickstart validation from `specs/008-fix-trailing-newline-cursor/quickstart.md`: `cargo test --test unit buffer cursor render`, and confirm all primary-fix and regression-guard outcomes pass
-- [ ] T017 [P] Run the full suite `cargo test` from repo root to confirm existing integration tests (open/save/search/enter/undo) remain green as persistence/edit regression guards (FR-007)
-- [ ] T018 Final readability, maintainability, and constitution review of `src/editor/buffer.rs` change: confirm single-responsibility boundary preserved, comment explains the ropey quirk, no new dependency, no persistence change (constitution I–V)
-- [ ] T019 [P] Update architecture docs (`architecture.md`) only if the one-line behavior note in `buffer::line_of_char` warrants a cross-reference; otherwise note explicitly "no doc change needed"
+- [X] T016 Run the quickstart validation from `specs/008-fix-trailing-newline-cursor/quickstart.md`: `cargo test --test unit buffer cursor render`, and confirm all primary-fix and regression-guard outcomes pass
+- [X] T017 [P] Run the full suite `cargo test` from repo root to confirm existing integration tests (open/save/search/enter/undo) remain green as persistence/edit regression guards (FR-007)
+- [X] T018 Final readability, maintainability, and constitution review of `src/editor/buffer.rs` change: confirm single-responsibility boundary preserved, comment explains the ropey quirk, no new dependency, no persistence change (constitution I–V)
+- [X] T019 [P] Update architecture docs (`architecture.md`) only if the one-line behavior note in `buffer::line_of_char` warrants a cross-reference; otherwise note explicitly "no doc change needed"
 
 ---
 
@@ -170,3 +170,8 @@ With multiple developers after Foundational:
 - Persistence is out-of-scope (FR-007): existing save tests remain as regression guards, no save-path code change or new save test
 - Verify tests FAIL before implementing the fix, then verify they PASS after
 - Commit after each task or logical group
+
+## Phase 6: Convergence
+
+- [ ] T020 Add an integration test in `tests/integration/trailing_newline_insert.rs` that inserts a character with the cursor at end-of-doc behind the trailing newline (`"abc\n"`, cursor at `len_chars()`) and asserts the content becomes `"abc\nx"`, the `char_index` advances behind the inserted character, and `line_of_char`/`visual_column` land on the empty trailing line per US1/AC2, SC-002, FR-003, FR-008 (partial)
+

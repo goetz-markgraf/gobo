@@ -61,3 +61,7 @@ path = "tests/unit/history.rs"
 [[test]]
 name = "integration_text_selection"
 path = "tests/integration/text_selection.rs"
+
+[[test]]
+name = "integration_trailing_newline_insert"
+path = "tests/integration/trailing_newline_insert.rs"

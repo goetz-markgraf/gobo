@@ -82,6 +82,7 @@ Popup variant switches automatically: terminal < 44×8 → `Compact`, else `Full
 - Visual columns = sum of `unicode_width` of all graphemes from line start
 - Moving up/down preserves `preferred_column` (visual), re-resolved per target line
 - `buffer::line_content()` strips trailing `\n` and `\r\n`; `rope_to_string()` reassembles with newlines
+- `buffer::line_of_char()` maps a cursor at `len_chars()` of a document ending in `\n` to the empty trailing line (ropey `char_to_line` returns the line *containing* a trailing `\n`; spec 008)
 
 ## Document I/O
 
