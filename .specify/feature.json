@@ -1,1 +1,3 @@
-{"feature_directory":"specs/008-fix-trailing-newline-cursor"}
+{
+  "feature_directory": "specs/009-clipboard-cut-copy-paste"
+}
