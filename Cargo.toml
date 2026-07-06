@@ -75,3 +75,11 @@ path = "tests/unit/clipboard.rs"
 [[test]]
 name = "integration_clipboard_features"
 path = "tests/integration/clipboard_features.rs"
+
+[[test]]
+name = "integration_tab_auto_indent"
+path = "tests/integration/tab_auto_indent.rs"
+
+[[test]]
+name = "unit_indent"
+path = "tests/unit/indent.rs"

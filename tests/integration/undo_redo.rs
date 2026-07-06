@@ -357,6 +357,37 @@ fn edge_large_single_insert_step_restores_exactly() {
 }
 
 #[test]
+fn tab_undo_and_redo_restore_in_one_step() {
+    let mut s = session_with_seed("");
+    s.handle_command(EditorCommand::Tab).unwrap();
+    assert_eq!(s.document.text.to_string(), "  ");
+    assert_eq!(s.history.undo.len(), 1);
+
+    undo(&mut s);
+    assert_eq!(s.document.text.to_string(), "");
+
+    redo(&mut s);
+    assert_eq!(s.document.text.to_string(), "  ");
+}
+
+#[test]
+fn smart_backspace_undo_and_redo_restore_in_one_step() {
+    let mut s = session_with_seed("    hello");
+    s.cursor.char_index = 4;
+    s.cursor.preferred_column = 4;
+
+    s.handle_command(EditorCommand::Backspace).unwrap();
+    assert_eq!(s.document.text.to_string(), "  hello");
+    assert_eq!(s.history.undo.len(), 1);
+
+    undo(&mut s);
+    assert_eq!(s.document.text.to_string(), "    hello");
+
+    redo(&mut s);
+    assert_eq!(s.document.text.to_string(), "  hello");
+}
+
+#[test]
 fn edge_fr009_mode_gating_undo_redo_ignored_in_search_and_prompts() {
     let mut s = session_with_seed("");
     type_char(&mut s, 'a');

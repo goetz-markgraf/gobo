@@ -530,3 +530,33 @@ fn edge_undo_redo_with_active_selection_then_action() {
     assert_eq!(s.document.text.to_string(), "Hallo");
     assert_eq!(s.selection, None);
 }
+
+#[test]
+fn cross_story_selection_actions_clear_selection_and_undo_in_one_step() {
+    let mut tab = session_with_seed("abcdef");
+    tab.selection = Some(Selection { anchor: 2, head: 4 });
+    tab.handle_command(EditorCommand::Tab).unwrap();
+    assert_eq!(tab.document.text.to_string(), "ab  f");
+    assert_eq!(tab.selection, None);
+    assert_eq!(tab.history.undo.len(), 1);
+    undo(&mut tab);
+    assert_eq!(tab.document.text.to_string(), "abcdef");
+
+    let mut enter = session_with_seed("  hello");
+    enter.selection = Some(Selection { anchor: 2, head: 4 });
+    enter.handle_command(EditorCommand::Enter).unwrap();
+    assert_eq!(enter.document.text.to_string(), "  \n  lo");
+    assert_eq!(enter.selection, None);
+    assert_eq!(enter.history.undo.len(), 1);
+    undo(&mut enter);
+    assert_eq!(enter.document.text.to_string(), "  hello");
+
+    let mut backspace = session_with_seed("    hello");
+    backspace.selection = Some(Selection { anchor: 3, head: 5 });
+    backspace.handle_command(EditorCommand::Backspace).unwrap();
+    assert_eq!(backspace.document.text.to_string(), "  llo");
+    assert_eq!(backspace.selection, None);
+    assert_eq!(backspace.history.undo.len(), 1);
+    undo(&mut backspace);
+    assert_eq!(backspace.document.text.to_string(), "    hello");
+}

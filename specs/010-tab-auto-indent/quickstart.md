@@ -18,6 +18,12 @@ cargo test --test integration_text_selection
 cargo test --test unit_indent
 ```
 
+Or run the full suite before merge:
+
+```bash
+cargo test
+```
+
 ## Manual / End-to-End Scenarios
 
 ### Scenario 1: Tab from an even column
@@ -89,3 +95,11 @@ cargo test --test unit_indent
 **Action**: Press `Tab` and `Shift-Tab`.
 **Expected**: Focus moves between prompt choices; no spaces are inserted into the document.
 **Reference**: [Contract §Key Bindings](contracts/tab-auto-indent.md#key-bindings)
+
+## Implementation Notes Verified
+
+- Editing-mode `Tab` inserts spaces only, never a literal tab character.
+- Prompt-mode `Tab` still advances prompt focus; `Shift-Tab` still moves backward.
+- `Enter` inserts one atomic payload: newline plus the current line's leading spaces.
+- Smart `Backspace` only outdents when the prefix from line start to cursor is all spaces.
+- Selection-aware `Tab`, `Enter`, and `Backspace` each complete as one undo step.

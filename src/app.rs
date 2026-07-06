@@ -5,6 +5,7 @@ use crate::editor::buffer;
 use crate::editor::clipboard;
 use crate::editor::cursor::{self, CursorState, Selection};
 use crate::editor::history::EditStep;
+use crate::editor::indent;
 use crate::editor::input::EditorCommand;
 use crate::editor::render::{self, RenderView, TerminalSize, ViewportState};
 use crate::editor::search::SearchState;
@@ -147,8 +148,9 @@ impl EditingSession {
     fn handle_editing_command(&mut self, command: EditorCommand) -> Result<(), DocumentError> {
         match command {
             EditorCommand::InsertChar(c) => self.replace_or_insert(&c.to_string()),
-            EditorCommand::Enter => self.replace_or_insert("\n"),
-            EditorCommand::Backspace => self.delete_or_backspace(false),
+            EditorCommand::Enter => self.apply_indent_command(EditorCommand::Enter),
+            EditorCommand::Tab => self.apply_indent_command(EditorCommand::Tab),
+            EditorCommand::Backspace => self.apply_indent_command(EditorCommand::Backspace),
             EditorCommand::Delete => self.delete_or_backspace(true),
             EditorCommand::MoveSelectLeft => {
                 cursor::move_select_left(&mut self.selection, &mut self.cursor, &self.document.text)
@@ -303,6 +305,7 @@ impl EditingSession {
             | EditorCommand::Redo
             | EditorCommand::Cut
             | EditorCommand::Paste
+            | EditorCommand::Tab
             | EditorCommand::NextChoice
             | EditorCommand::PreviousChoice
             | EditorCommand::Resize(_) => {}
@@ -322,7 +325,7 @@ impl EditingSession {
                         focus: previous_unsaved_choice(&focus),
                     });
                 }
-                EditorCommand::MoveRight | EditorCommand::NextChoice => {
+                EditorCommand::MoveRight | EditorCommand::Tab | EditorCommand::NextChoice => {
                     self.pending_prompt = Some(PromptState::UnsavedChanges {
                         action,
                         focus: next_unsaved_choice(&focus),
@@ -356,7 +359,7 @@ impl EditingSession {
                         resume_action,
                     });
                 }
-                EditorCommand::MoveRight | EditorCommand::NextChoice => {
+                EditorCommand::MoveRight | EditorCommand::Tab | EditorCommand::NextChoice => {
                     self.pending_prompt = Some(PromptState::SaveConflict {
                         focus: next_conflict_choice(&focus),
                         resume_action,
@@ -495,6 +498,50 @@ impl EditingSession {
         self.insert_text(text);
     }
 
+    fn apply_indent_command(&mut self, command: EditorCommand) {
+        let Some(plan) = self.indent_action_plan(&command) else {
+            match command {
+                EditorCommand::Backspace => self.backspace(),
+                EditorCommand::Enter => self.replace_or_insert("\n"),
+                EditorCommand::Tab => {}
+                _ => {}
+            }
+            return;
+        };
+
+        self.apply_atomic_edit(plan.replace_start, plan.replace_end, &plan.inserted_text);
+    }
+
+    fn indent_action_plan(&self, command: &EditorCommand) -> Option<indent::IndentActionPlan> {
+        let (replace_start, replace_end) = if let Some(selection) = self.selection
+            && !selection.is_empty()
+        {
+            let range = selection.range();
+            (range.start, range.end)
+        } else {
+            (self.cursor.char_index, self.cursor.char_index)
+        };
+
+        match command {
+            EditorCommand::Tab => Some(indent::plan_tab(
+                &self.document.text,
+                replace_start,
+                replace_end,
+            )),
+            EditorCommand::Enter => Some(indent::plan_enter(
+                &self.document.text,
+                replace_start,
+                replace_end,
+            )),
+            EditorCommand::Backspace => indent::plan_backspace(
+                &self.document.text,
+                replace_start,
+                replace_end,
+            ),
+            _ => None,
+        }
+    }
+
     /// Selection-aware delete path for `Backspace` (`forward = false`) and
     /// `Delete` (`forward = true`) (FR-006/FR-007/FR-008). When a non-empty
     /// selection exists, both route to the same atomic delete-selection, landing
@@ -512,6 +559,41 @@ impl EditingSession {
         } else {
             self.backspace();
         }
+    }
+
+    fn apply_atomic_edit(&mut self, start: usize, end: usize, inserted: &str) {
+        if self.document.is_read_only() {
+            self.status = Some(StatusMessage::warning("Read-only: edits are blocked"));
+            return;
+        }
+
+        let clamped_start = start.min(self.document.text.len_chars());
+        let clamped_end = end.min(self.document.text.len_chars()).max(clamped_start);
+        let removed = self.document.text.slice(clamped_start..clamped_end).to_string();
+        let next_index = buffer::replace_range(
+            &mut self.document.text,
+            clamped_start..clamped_end,
+            inserted,
+        );
+        self.cursor.char_index = next_index;
+        self.cursor.preferred_column = cursor::visual_column(&self.document.text, next_index);
+        self.document.mark_dirty();
+
+        let step = if removed.is_empty() {
+            EditStep::Insert {
+                index: clamped_start,
+                text: inserted.to_string(),
+            }
+        } else {
+            EditStep::Replace {
+                index: clamped_start,
+                removed,
+                inserted: inserted.to_string(),
+            }
+        };
+        let outcome = self.history.record(step);
+        self.status = Some(history_status(outcome, "Replaced text"));
+        self.selection = None;
     }
 
     /// Atomic replace of the active selection range with `inserted` (may be

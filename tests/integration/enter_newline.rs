@@ -43,6 +43,34 @@ fn enter_mid_line_splits_correctly() {
 }
 
 #[test]
+fn enter_copies_leading_spaces_at_line_end() {
+    let mut session = make_session("    hello");
+    session.cursor.char_index = 9;
+    assert_enter_text(&mut session, "    hello\n    ");
+}
+
+#[test]
+fn enter_copies_leading_spaces_when_splitting_line() {
+    let mut session = make_session("  hello");
+    session.cursor.char_index = 4;
+    assert_enter_text(&mut session, "  he\n  llo");
+}
+
+#[test]
+fn enter_on_unindented_line_keeps_no_indent() {
+    let mut session = make_session("hello");
+    session.cursor.char_index = 2;
+    assert_enter_text(&mut session, "he\nllo");
+}
+
+#[test]
+fn enter_on_all_space_line_copies_all_spaces() {
+    let mut session = make_session("    ");
+    session.cursor.char_index = 4;
+    assert_enter_text(&mut session, "    \n    ");
+}
+
+#[test]
 fn enter_at_cursor_position_keeps_content_before() {
     // split at position 2 in "Hello" produces "He\nllo"
     let mut session = make_session("Hello");

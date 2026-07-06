@@ -5,6 +5,7 @@ pub mod buffer;
 pub mod clipboard;
 pub mod cursor;
 pub mod history;
+pub mod indent;
 pub mod input;
 pub mod render;
 pub mod search;

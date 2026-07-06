@@ -18,9 +18,9 @@
 
 **Purpose**: Prepare the repo for the new indentation helper and standalone tests.
 
-- [ ] T001 Register `integration_tab_auto_indent` and `unit_indent` test targets in Cargo.toml
-- [ ] T002 [P] Export the new indentation helper module in src/editor/mod.rs
-- [ ] T003 [P] Introduce `EditorCommand::Tab` and map `KeyCode::Tab` without breaking `KeyCode::BackTab` in src/editor/input.rs
+- [X] T001 Register `integration_tab_auto_indent` and `unit_indent` test targets in Cargo.toml
+- [X] T002 [P] Export the new indentation helper module in src/editor/mod.rs
+- [X] T003 [P] Introduce `EditorCommand::Tab` and map `KeyCode::Tab` without breaking `KeyCode::BackTab` in src/editor/input.rs
 
 ---
 
@@ -30,9 +30,9 @@
 
 **⚠️ CRITICAL**: No user story work should start before this phase is complete.
 
-- [ ] T004 Create the pure indentation helper skeleton and action-planning types in src/editor/indent.rs
-- [ ] T005 Preserve prompt navigation by routing `EditorCommand::Tab` to prompt choice movement in src/app.rs
-- [ ] T006 Add a shared atomic selection-aware edit path for Tab, Enter, and Backspace in src/app.rs
+- [X] T004 Create the pure indentation helper skeleton and action-planning types in src/editor/indent.rs
+- [X] T005 Preserve prompt navigation by routing `EditorCommand::Tab` to prompt choice movement in src/app.rs
+- [X] T006 Add a shared atomic selection-aware edit path for Tab, Enter, and Backspace in src/app.rs
 
 **Checkpoint**: Editing-mode Tab is distinct from prompt navigation, and `src/editor/indent.rs` exists as the shared pure-logic home for the feature.
 
@@ -46,13 +46,13 @@
 
 ### Tests for User Story 1 (write first, ensure they fail before implementation)
 
-- [ ] T007 [P] [US1] Add tab-width and cursor-column parity unit tests in tests/unit/indent.rs
-- [ ] T008 [US1] Add editing-mode Tab integration tests for even/odd columns, mid-line insertion, selection replacement, prompt navigation, and read-only blocking in tests/integration/tab_auto_indent.rs
+- [X] T007 [P] [US1] Add tab-width and cursor-column parity unit tests in tests/unit/indent.rs
+- [X] T008 [US1] Add editing-mode Tab integration tests for even/odd columns, mid-line insertion, selection replacement, prompt navigation, and read-only blocking in tests/integration/tab_auto_indent.rs
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement Tab column and inserted-space planning helpers in src/editor/indent.rs
-- [ ] T010 [US1] Implement editing-mode Tab atomic insertion, cursor placement, selection clearing, and one-step undo handling in src/app.rs
+- [X] T009 [US1] Implement Tab column and inserted-space planning helpers in src/editor/indent.rs
+- [X] T010 [US1] Implement editing-mode Tab atomic insertion, cursor placement, selection clearing, and one-step undo handling in src/app.rs
 
 **Checkpoint**: User Story 1 works independently and can serve as the MVP slice.
 
@@ -66,13 +66,13 @@
 
 ### Tests for User Story 2 (write first, ensure they fail before implementation)
 
-- [ ] T011 [P] [US2] Add leading-space detection and newline payload unit tests in tests/unit/indent.rs
-- [ ] T012 [US2] Update Enter auto-indent integration coverage for indented lines, split lines, no-indent lines, all-space lines, and selection replacement in tests/integration/enter_newline.rs and tests/integration/tab_auto_indent.rs
+- [X] T011 [P] [US2] Add leading-space detection and newline payload unit tests in tests/unit/indent.rs
+- [X] T012 [US2] Update Enter auto-indent integration coverage for indented lines, split lines, no-indent lines, all-space lines, and selection replacement in tests/integration/enter_newline.rs and tests/integration/tab_auto_indent.rs
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Implement leading-indentation detection and newline payload builders in src/editor/indent.rs
-- [ ] T014 [US2] Replace plain Enter insertion with auto-indent, split-line preservation, selection replacement, and one-step undo behavior in src/app.rs
+- [X] T013 [US2] Implement leading-indentation detection and newline payload builders in src/editor/indent.rs
+- [X] T014 [US2] Replace plain Enter insertion with auto-indent, split-line preservation, selection replacement, and one-step undo behavior in src/app.rs
 
 **Checkpoint**: User Story 2 works independently without requiring User Story 1 or User Story 3 behavior to validate it.
 
@@ -86,13 +86,13 @@
 
 ### Tests for User Story 3 (write first, ensure they fail before implementation)
 
-- [ ] T015 [P] [US3] Add all-space-prefix detection and smart-outdent width unit tests in tests/unit/indent.rs
-- [ ] T016 [US3] Add smart Backspace integration and undo coverage for even/odd prefixes, mixed prefixes, column-0 behavior, and selection replacement in tests/integration/tab_auto_indent.rs and tests/integration/undo_redo.rs
+- [X] T015 [P] [US3] Add all-space-prefix detection and smart-outdent width unit tests in tests/unit/indent.rs
+- [X] T016 [US3] Add smart Backspace integration and undo coverage for even/odd prefixes, mixed prefixes, column-0 behavior, and selection replacement in tests/integration/tab_auto_indent.rs and tests/integration/undo_redo.rs
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Implement smart Backspace planning helpers and mixed-prefix fallback detection in src/editor/indent.rs
-- [ ] T018 [US3] Implement editing-mode smart Backspace, normal fallback, selection replacement, and one-step undo behavior in src/app.rs
+- [X] T017 [US3] Implement smart Backspace planning helpers and mixed-prefix fallback detection in src/editor/indent.rs
+- [X] T018 [US3] Implement editing-mode smart Backspace, normal fallback, selection replacement, and one-step undo behavior in src/app.rs
 
 **Checkpoint**: All three user stories are independently functional and testable.
 
@@ -102,9 +102,9 @@
 
 **Purpose**: Finish cross-story regressions, docs, and boundary cleanup.
 
-- [ ] T019 [P] Add cross-story regression coverage for Tab, Enter, and Backspace selection semantics in tests/integration/text_selection.rs
-- [ ] T020 [P] Update feature validation commands and manual verification steps in specs/010-tab-auto-indent/quickstart.md
-- [ ] T021 Run final boundary cleanup for command mapping, pure indentation logic, and stateful edit orchestration in src/editor/input.rs, src/editor/indent.rs, and src/app.rs
+- [X] T019 [P] Add cross-story regression coverage for Tab, Enter, and Backspace selection semantics in tests/integration/text_selection.rs
+- [X] T020 [P] Update feature validation commands and manual verification steps in specs/010-tab-auto-indent/quickstart.md
+- [X] T021 Run final boundary cleanup for command mapping, pure indentation logic, and stateful edit orchestration in src/editor/input.rs, src/editor/indent.rs, and src/app.rs
 
 ---
 
