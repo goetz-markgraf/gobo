@@ -386,18 +386,18 @@ fn us4_delete_selection_lands_cursor_at_start() {
 }
 
 #[test]
-fn us4_backspace_over_selection_same_effect_as_delete() {
+fn us4_backspace_over_selection_applies_current_backspace_rules_after_selection_removal() {
     let mut s = session_with_seed("Hallo");
     delete_on_selection(&mut s, EditorCommand::Backspace, 2, 5);
-    assert_eq!(s.document.text.to_string(), "Ha");
-    assert_eq!(s.cursor.char_index, 2);
+    assert_eq!(s.document.text.to_string(), "H");
+    assert_eq!(s.cursor.char_index, 1);
     assert_eq!(s.selection, None);
 
-    // backward selection + Backspace -> same effect (FR-006)
+    // backward selection keeps the same result after normalization.
     let mut s2 = session_with_seed("Hallo");
     delete_on_selection(&mut s2, EditorCommand::Backspace, 5, 2);
-    assert_eq!(s2.document.text.to_string(), "Ha");
-    assert_eq!(s2.cursor.char_index, 2);
+    assert_eq!(s2.document.text.to_string(), "H");
+    assert_eq!(s2.cursor.char_index, 1);
 }
 
 #[test]

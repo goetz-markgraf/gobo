@@ -499,9 +499,22 @@ impl EditingSession {
     }
 
     fn apply_indent_command(&mut self, command: EditorCommand) {
+        let selection_range = self
+            .selection
+            .filter(|selection| !selection.is_empty())
+            .map(|selection| selection.range());
+
         let Some(plan) = self.indent_action_plan(&command) else {
             match command {
-                EditorCommand::Backspace => self.backspace(),
+                EditorCommand::Backspace => {
+                    if let Some(range) = selection_range {
+                        let start = range.start;
+                        let delete_start = start.saturating_sub(1);
+                        self.apply_atomic_edit(delete_start, range.end, "");
+                    } else {
+                        self.backspace();
+                    }
+                }
                 EditorCommand::Enter => self.replace_or_insert("\n"),
                 EditorCommand::Tab => {}
                 _ => {}

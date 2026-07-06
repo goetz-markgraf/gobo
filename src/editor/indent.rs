@@ -105,8 +105,17 @@ pub fn plan_backspace(
     let prefix = line_prefix(text, replace_start);
     let width = smart_backspace_width(&prefix);
 
-    if width == 0 && replace_start == replace_end {
-        return None;
+    if width == 0 {
+        if replace_start == replace_end {
+            return None;
+        }
+
+        return Some(IndentActionPlan {
+            command: IndentCommand::Backspace,
+            replace_start: replace_start.saturating_sub(1),
+            replace_end,
+            inserted_text: String::new(),
+        });
     }
 
     Some(IndentActionPlan {

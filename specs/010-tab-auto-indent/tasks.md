@@ -212,3 +212,8 @@ Task: "Add smart Backspace integration and undo coverage in tests/integration/ta
 - `[P]` markers only appear on tasks that can proceed without overlapping file edits in the same step
 - Tests are explicit because the constitution and `spec.md` require automated verification for normal flows and edge cases
 - Story independence is preserved by keeping pure calculations in `src/editor/indent.rs` and mode-aware orchestration in `src/app.rs`
+
+## Phase 7: Convergence
+
+- [X] T022 Fix Backspace selection handling so a non-empty selection is deleted first and normal Backspace fallback still runs once when smart outdent does not apply, per FR-015 (partial)
+- [X] T023 Add regression coverage for Backspace over a non-empty selection when post-replacement fallback should delete a regular character or line break, per FR-018 (partial)

@@ -203,3 +203,37 @@ fn backspace_replaces_selection_then_outdents_in_one_step() {
     session.handle_command(EditorCommand::Undo).unwrap();
     assert_eq!(session.document.text.to_string(), "    hello");
 }
+
+#[test]
+fn backspace_over_selection_falls_back_to_regular_char_delete_in_one_step() {
+    let mut session = make_session("abXYZc");
+    session.selection = Some(Selection { anchor: 2, head: 4 });
+
+    session.handle_command(EditorCommand::Backspace).unwrap();
+
+    assert_eq!(session.document.text.to_string(), "ac");
+    assert_eq!(session.cursor.char_index, 1);
+    assert_eq!(session.selection, None);
+    assert_eq!(session.history.undo.len(), 1);
+    assert!(matches!(session.history.undo[0], gobo::editor::history::EditStep::Replace { .. }));
+
+    session.handle_command(EditorCommand::Undo).unwrap();
+    assert_eq!(session.document.text.to_string(), "abXYZc");
+}
+
+#[test]
+fn backspace_over_selection_at_line_start_deletes_previous_line_break_in_one_step() {
+    let mut session = make_session("ab\nXYZc");
+    session.selection = Some(Selection { anchor: 3, head: 5 });
+
+    session.handle_command(EditorCommand::Backspace).unwrap();
+
+    assert_eq!(session.document.text.to_string(), "abc");
+    assert_eq!(session.cursor.char_index, 2);
+    assert_eq!(session.selection, None);
+    assert_eq!(session.history.undo.len(), 1);
+    assert!(matches!(session.history.undo[0], gobo::editor::history::EditStep::Replace { .. }));
+
+    session.handle_command(EditorCommand::Undo).unwrap();
+    assert_eq!(session.document.text.to_string(), "ab\nXYZc");
+}
