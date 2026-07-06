@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/009-clipboard-cut-copy-paste/plan.md
+at specs/010-tab-auto-indent/plan.md
 <!-- SPECKIT END -->
 
 # Gobo -- simple Texteditor
