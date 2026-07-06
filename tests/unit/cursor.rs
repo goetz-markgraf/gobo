@@ -50,10 +50,12 @@ fn grapheme_width_is_used_for_visual_columns() {
 
 #[test]
 fn selection_range_is_min_max_half_open() {
+    // Forward: range extends one past head to include the char the cursor is on.
     let s = Selection { anchor: 2, head: 5 };
-    assert_eq!(s.range(), 2..5);
+    assert_eq!(s.range(), 2..6); // 2..5+1: char at head(5) included
+    // Backward: cursor is at head=min (already included); anchor(=max) is excluded.
     let reversed = Selection { anchor: 5, head: 2 };
-    assert_eq!(reversed.range(), 2..5);
+    assert_eq!(reversed.range(), 2..5); // standard half-open, no +1 for backward
 }
 
 #[test]
@@ -87,11 +89,12 @@ fn move_select_seeds_anchor_on_first_move_then_fixes_it() {
     let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
     let mut sel: Option<Selection> = None;
 
+    // First Shift+Right: head=3 (post-move). Forward (3>2). Range=2..4.
     move_select_right(&mut sel, &mut cursor, &text);
     assert_eq!(sel, Some(Selection { anchor: 2, head: 3 }));
     assert_eq!(cursor.char_index, 3);
 
-    // Anchor stays fixed; head advances.
+    // Second Shift+Right: head=4. Range=2..5.
     move_select_right(&mut sel, &mut cursor, &text);
     assert_eq!(sel, Some(Selection { anchor: 2, head: 4 }));
     assert_eq!(cursor.char_index, 4);
@@ -103,13 +106,14 @@ fn move_select_direction_flips_when_head_crosses_anchor() {
     let mut cursor = CursorState { char_index: 2, preferred_column: 2 };
     let mut sel: Option<Selection> = None;
 
+    // Shift+Left: head=1 (post-move). Backward (1<2).
     move_select_left(&mut sel, &mut cursor, &text);
     assert_eq!(sel, Some(Selection { anchor: 2, head: 1 }));
     assert!(!sel.unwrap().is_forward());
 
-    // Cross back to the right of the anchor -> forward again.
-    move_select_right(&mut sel, &mut cursor, &text);
-    move_select_right(&mut sel, &mut cursor, &text);
+    // Two Shift+Rights: head=2 (empty, forward), then head=3 (forward).
+    move_select_right(&mut sel, &mut cursor, &text); // head=2, cursor=2
+    move_select_right(&mut sel, &mut cursor, &text); // head=3, cursor=3
     assert_eq!(sel, Some(Selection { anchor: 2, head: 3 }));
     assert!(sel.unwrap().is_forward());
 }

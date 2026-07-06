@@ -529,7 +529,7 @@ impl EditingSession {
             .expect("replace_selection called only with a selection");
         let range = selection.range();
         let start = range.start;
-        let end = range.end;
+        let end = range.end.min(self.document.text.len_chars());
         // Capture the to-be-removed text before mutation.
         let removed: String = self.document.text.slice(start..end).to_string();
 
@@ -590,7 +590,8 @@ impl EditingSession {
         {
             // Cut with selection — one atomic Replace (FR-002/FR-010).
             let range = sel.range();
-            let removed: String = self.document.text.slice(range.start..range.end).to_string();
+            let clamped_end = range.end.min(self.document.text.len_chars());
+            let removed: String = self.document.text.slice(range.start..clamped_end).to_string();
             let next = buffer::replace_range(&mut self.document.text, range.clone(), "");
             self.cursor.char_index = next;
             self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
@@ -645,7 +646,8 @@ impl EditingSession {
         {
             // Paste over selection — one atomic Replace (FR-004/FR-005).
             let range = sel.range();
-            let removed: String = self.document.text.slice(range.start..range.end).to_string();
+            let clamped_end = range.end.min(self.document.text.len_chars());
+            let removed: String = self.document.text.slice(range.start..clamped_end).to_string();
             let next = buffer::replace_range(&mut self.document.text, range.clone(), &clip);
             self.cursor.char_index = next;
             self.cursor.preferred_column = cursor::visual_column(&self.document.text, next);
@@ -680,7 +682,8 @@ impl EditingSession {
             && !sel.is_empty()
         {
             let r = sel.range();
-            let text = self.document.text.slice(r.start..r.end).to_string();
+            let clamped_end = r.end.min(self.document.text.len_chars());
+            let text = self.document.text.slice(r.start..clamped_end).to_string();
             return Some((text, r.start));
         }
         cursor::grapheme_at_cursor(&self.document.text, self.cursor.char_index)

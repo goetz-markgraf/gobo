@@ -74,14 +74,14 @@ fn copy_with_selection() {
     let _g = lock();
     let mut s = session_with_seed("Hello World");
     // select "World" = chars 6..11
-    s.selection = Some(Selection { anchor: 6, head: 11 });
+    s.selection = Some(Selection { anchor: 6, head: 10 });
     s.handle_command(EditorCommand::Copy).unwrap();
     // clipboard contains "World"
     assert_eq!(read_clip().as_deref(), Some("World"));
     // editor text unchanged
     assert_eq!(s.document.text.to_string(), "Hello World");
     // selection preserved (FR-001)
-    assert_eq!(s.selection, Some(Selection { anchor: 6, head: 11 }));
+    assert_eq!(s.selection, Some(Selection { anchor: 6, head: 10 }));
     // no undo entry
     assert!(s.history.undo.is_empty());
     // status "Copied 5 chars"
@@ -150,7 +150,7 @@ fn cut_with_multiline_selection_and_undo() {
     let seed = "Zeile1\nZeile2\nZeile3\n";
     let mut s = session_with_seed(seed);
     // "Zeile2\n" = chars 7..14 (7 chars: Z e i l e 2 \n)
-    s.selection = Some(Selection { anchor: 7, head: 14 });
+    s.selection = Some(Selection { anchor: 7, head: 13 });
     s.handle_command(EditorCommand::Cut).unwrap();
     assert_eq!(s.document.text.to_string(), "Zeile1\nZeile3\n");
     assert_eq!(read_clip().as_deref(), Some("Zeile2\n"));
@@ -215,8 +215,8 @@ fn paste_over_selection_and_undo() {
     let _g = lock();
     set_clip("Earth");
     let mut s = session_with_seed("Hello World");
-    // select "World" = 6..11
-    s.selection = Some(Selection { anchor: 6, head: 11 });
+    // select "World" = chars 6..11 (anchor=6, head=10 in new inclusive model)
+    s.selection = Some(Selection { anchor: 6, head: 10 });
     s.handle_command(EditorCommand::Paste).unwrap();
     assert_eq!(s.document.text.to_string(), "Hello Earth");
     assert_eq!(s.cursor.char_index, 11); // after "Earth"
@@ -290,8 +290,8 @@ fn multiline_cut_restore_preserves_newlines() {
     let _g = lock();
     let seed = "Hello\nWorld\nFoo\n";
     let mut s = session_with_seed(seed);
-    // select "World\n" = chars 6..12 (6 chars: W o r l d \n)
-    s.selection = Some(Selection { anchor: 6, head: 12 });
+    // select "World\n" = chars 6..12 (head=11 in inclusive model)
+    s.selection = Some(Selection { anchor: 6, head: 11 });
     s.handle_command(EditorCommand::Cut).unwrap();
     assert_eq!(s.document.text.to_string(), "Hello\nFoo\n");
     assert_eq!(read_clip().as_deref(), Some("World\n"));

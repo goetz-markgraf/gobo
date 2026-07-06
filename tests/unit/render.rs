@@ -149,8 +149,8 @@ fn render_view_emits_highlight_spans_for_visible_selection() {
     std::fs::write(&path, "Hallo Welt\n").unwrap();
     std::mem::forget(dir);
     let mut session = EditingSession::open(&path, TerminalSize::new(40, 8)).unwrap();
-    // Select "llo" -> chars [2,5) on line 0.
-    session.selection = Some(Selection { anchor: 2, head: 5 });
+    // Select "llo" -> chars [2,5): anchor=2, head=4 (inclusive, block-cursor model).
+    session.selection = Some(Selection { anchor: 2, head: 4 });
 
     let view = session.render_view();
     assert!(!view.body_lines.is_empty());

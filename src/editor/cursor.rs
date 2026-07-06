@@ -24,14 +24,33 @@ pub struct Selection {
 }
 
 impl Selection {
-    /// Half-open char range actually covered: `[min(anchor, head), max(anchor, head))`.
-    /// Always safe for `Rope::remove` / `buffer::replace_range`.
+    /// Half-open char range covering the selected chars.
+    ///
+    /// For **forward** selections (`head > anchor`): the char *at* `head` (the
+    /// live cursor) is included via `max + 1` — block-cursor inclusion
+    /// (spec 009: "der Buchstabe, auf dem der Cursor steht, muss mitgenommen
+    /// werden"). The selection covers `anchor..head+1`.
+    ///
+    /// For **backward** selections (`head < anchor`): the cursor is already at
+    /// `head = min`, which is included as the range start. The anchor (= `max`)
+    /// is excluded (`min..max`), matching the direction in which the user moved.
+    ///
+    /// For **empty** selections (`head == anchor`): returns an empty range.
     pub fn range(self) -> std::ops::Range<usize> {
-        self.anchor.min(self.head)..self.anchor.max(self.head)
+        let start = self.anchor.min(self.head);
+        let end   = self.anchor.max(self.head);
+        if self.head > self.anchor {
+            start..end + 1  // forward: include the char AT head (block-cursor)
+        } else {
+            start..end      // backward or empty: cursor at start, anchor excluded
+        }
     }
 
-    /// `true` iff `anchor == head` (no visible selection). Per FR-008 an empty
-    /// selection behaves as "no selection" for every edit command.
+    /// `true` iff `anchor == head` (cursor placed without dragging — zero
+    /// visible chars selected). The block-cursor range extension (`+1`) in
+    /// `range()` only applies when this returns `false` (i.e. the user has
+    /// actually dragged the selection). `Option::None` represents *no*
+    /// selection; this returns `true` only for the degenerate same-point case.
     pub fn is_empty(self) -> bool {
         self.anchor == self.head
     }
@@ -151,6 +170,8 @@ pub fn move_select_left(sel: &mut Option<Selection>, cursor: &mut CursorState, t
 }
 
 /// Shift+Right: seed anchor on first move, then move the head one char right.
+/// For forward selections (head ≥ anchor), `range()` extends one past `head` to
+/// include the char the cursor is on (block-cursor inclusion, spec 009).
 pub fn move_select_right(sel: &mut Option<Selection>, cursor: &mut CursorState, text: &Rope) {
     seed_anchor(sel, cursor);
     move_right(cursor, text);

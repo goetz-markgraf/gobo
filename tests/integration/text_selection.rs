@@ -92,7 +92,7 @@ fn us1_direction_flip_when_head_crosses_anchor() {
     s.handle_command(EditorCommand::MoveSelectRight).unwrap();
     s.handle_command(EditorCommand::MoveSelectRight).unwrap();
     assert!(s.selection.unwrap().is_forward()); // head 4 > anchor 2
-    assert_eq!(s.selection.unwrap().range(), 2..4);
+    assert_eq!(s.selection.unwrap().range(), 2..5);
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn us3_replace_single_char_over_selection() {
 fn us3_replace_multiline_is_single_atomic_step() {
     let mut s = session_with_seed("Hello\nWorld\n");
     // select the range chars [2, 8) = "llo\nWo", replace with a single char 'X'.
-    replace_on_selection(&mut s, 2, 8, 'X');
+    replace_on_selection(&mut s, 2, 7, 'X');
     assert_eq!(s.document.text.to_string(), "HeXrld\n");
     assert_eq!(s.history.undo.len(), 1);
     assert!(matches!(s.history.undo[0], EditStep::Replace { .. }));
@@ -322,7 +322,7 @@ fn us3_enter_over_selection_replaces_with_newline() {
     let let_seed = "Hallo Welt";
     let mut s = session_with_seed(let_seed);
     // select "lo " (chars [3,6))
-    s.selection = Some(Selection { anchor: 3, head: 6 });
+    s.selection = Some(Selection { anchor: 3, head: 5 });
     s.handle_command(EditorCommand::Enter).unwrap();
     assert_eq!(s.document.text.to_string(), "Hal\nWelt");
     assert!(matches!(s.history.undo[0], EditStep::Replace { .. }));
@@ -404,7 +404,7 @@ fn us4_backspace_over_selection_same_effect_as_delete() {
 fn us4_multiline_delete_removes_intervening_newlines() {
     let mut s = session_with_seed("Hello\nWorld\n");
     // select chars [2, 8) = "llo\nWo"
-    delete_on_selection(&mut s, EditorCommand::Delete, 2, 8);
+    delete_on_selection(&mut s, EditorCommand::Delete, 2, 7);
     assert_eq!(s.document.text.to_string(), "Herld\n");
     assert_eq!(s.cursor.char_index, 2);
     assert_eq!(s.history.undo.len(), 1);
@@ -463,7 +463,7 @@ fn us4_readonly_blocks_delete_selection() {
 fn us4_newline_only_selection_removed_and_restored_verbatim() {
     let mut s = session_with_seed("ab\n\ncd");
     // select only the empty middle line + its newline: chars [3,4) is "\n"
-    s.selection = Some(Selection { anchor: 3, head: 4 });
+    s.selection = Some(Selection { anchor: 4, head: 3 });
     s.handle_command(EditorCommand::Delete).unwrap();
     assert_eq!(s.document.text.to_string(), "ab\ncd");
     undo(&mut s);
@@ -478,7 +478,7 @@ fn us4_newline_only_selection_removed_and_restored_verbatim() {
 fn edge_crlf_selection_removed_and_restored_as_pair() {
     let mut s = session_with_seed("a\r\nb");
     // ropey treats \r\n as... we work in chars. select chars [1,3) = "\r\n"
-    s.selection = Some(Selection { anchor: 1, head: 3 });
+    s.selection = Some(Selection { anchor: 1, head: 2 });
     s.handle_command(EditorCommand::Delete).unwrap();
     assert_eq!(s.document.text.to_string(), "ab");
     undo(&mut s);
@@ -490,7 +490,7 @@ fn edge_multigrapheme_cluster_removed_as_whole() {
     // 'a' + combining acute (U+0301) forms one grapheme "á" (2 chars).
     let mut s = session_with_seed("a\u{0301}b");
     // select the cluster chars [0,2)
-    s.selection = Some(Selection { anchor: 0, head: 2 });
+    s.selection = Some(Selection { anchor: 0, head: 1 });
     s.handle_command(EditorCommand::Delete).unwrap();
     assert_eq!(s.document.text.to_string(), "b");
     undo(&mut s);
@@ -510,7 +510,7 @@ fn edge_selection_at_exact_doc_start_and_end_safe() {
 
     // delete at exact start with a tiny selection
     let mut s2 = session_with_seed("Hallo");
-    s2.selection = Some(Selection { anchor: 0, head: 1 });
+    s2.selection = Some(Selection { anchor: 1, head: 0 });
     s2.handle_command(EditorCommand::Backspace).unwrap();
     assert_eq!(s2.document.text.to_string(), "allo");
 }
