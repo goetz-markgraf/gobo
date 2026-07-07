@@ -216,15 +216,24 @@ fn paint(frame: &mut ratatui::Frame, view: &RenderView) {
             lines.push(String::new());
             lines.push(message.clone());
         }
-        lines.push(String::new());
-        lines.push(
-            popup
-                .actions
-                .iter()
-                .map(|action| action.label.as_str())
-                .collect::<Vec<_>>()
-                .join("    "),
-        );
+        // HelpDialog: show keybinding rows instead of action buttons.
+        if !popup.popup_rows.is_empty() {
+            lines.push(String::new());
+            for row in &popup.popup_rows {
+                lines.push(row.clone());
+            }
+            lines.push(String::new());
+        } else {
+            lines.push(String::new());
+            lines.push(
+                popup
+                    .actions
+                    .iter()
+                    .map(|action| action.label.as_str())
+                    .collect::<Vec<_>>()
+                    .join("    "),
+            );
+        }
         lines.push(popup.help_text.clone());
 
         let popup_paragraph = Paragraph::new(lines.join("\n")).style(

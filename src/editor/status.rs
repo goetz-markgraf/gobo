@@ -45,6 +45,29 @@ impl StatusMessage {
     }
 }
 
+/// A single row in the help dialog overlay: key binding + label.
+#[derive(Clone, Debug)]
+pub struct HelpDialogRow {
+    pub key: String,
+    pub label: String,
+}
+
+/// Build the flat list of all 9 active Ctrl-key bindings for the Help Dialog.
+/// Display order matches contracts/key-bindings.md EXACTLY.
+pub fn build_help_rows() -> Vec<HelpDialogRow> {
+    vec![
+        HelpDialogRow { key: String::from("Ctrl-F"), label: String::from("Find in document") },
+        HelpDialogRow { key: String::from("Ctrl-G"), label: String::from("Find next match") },
+        HelpDialogRow { key: String::from("Ctrl-S"), label: String::from("Save document") },
+        HelpDialogRow { key: String::from("Ctrl-Z"), label: String::from("Undo last edit") },
+        HelpDialogRow { key: String::from("Ctrl-Y"), label: String::from("Redo last undone edit") },
+        HelpDialogRow { key: String::from("Ctrl-C"), label: String::from("Copy selection to clipboard") },
+        HelpDialogRow { key: String::from("Ctrl-X"), label: String::from("Cut selection to clipboard") },
+        HelpDialogRow { key: String::from("Ctrl-V"), label: String::from("Paste from clipboard") },
+        HelpDialogRow { key: String::from("Ctrl-Q"), label: String::from("Quit (clean) / save prompt (dirty)") },
+    ]
+}
+
 /// The human-readable status message for the current session, shown on the
 /// right of the footer row. Defaults to `Ready` when no status is set.
 pub fn current_message(session: &EditingSession) -> String {
@@ -89,6 +112,7 @@ pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Opti
                 ],
                 help_text: "←/→, Tab, Enter, Esc".to_string(),
                 rect,
+                popup_rows: vec![],
             }
         }
         PromptState::SaveConflict { focus, .. } => {
@@ -124,9 +148,58 @@ pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Opti
                 ],
                 help_text: "←/→, Tab, Enter, Esc".to_string(),
                 rect,
+                popup_rows: vec![],
             }
         }
+        PromptState::HelpDialog => build_help_popup(terminal_size, session),
     })
+}
+
+fn build_help_popup(size: TerminalSize, session: &EditingSession) -> PopupView {
+    let variant = popup_variant(size);
+    let rows = build_help_rows();
+
+    // Compute body height (subtract title row + 2 border rows + footer hint row)
+    let body_height: usize = match variant {
+        PromptVariant::Full => size.height.saturating_sub(4) as usize,
+        PromptVariant::Compact => size.height.saturating_sub(3) as usize,
+    }
+    .max(2);
+
+    // Build all rows with fixed-width key column (14 chars right-padded)
+    let all_rows: Vec<String> = rows
+        .iter()
+        .map(|r| {
+            let klen = unicode_width::UnicodeWidthStr::width(r.key.as_str());
+            if klen < 14 {
+                format!("{}{}", r.key, " ".repeat(14 - klen)) + " " + &r.label
+            } else {
+                format!("{}{}", r.key, " ") + &r.label
+            }
+        })
+        .collect();
+
+    // Apply scroll offset
+    let rows_len = all_rows.len();
+    let max_offset = if rows_len > body_height { rows_len - body_height } else { 0 };
+    let offset = session.help_scroll_offset.min(max_offset);
+    let end = (offset + body_height).min(rows_len);
+
+    let popup_rows: Vec<String> = if offset < end {
+        all_rows[offset..end].to_vec()
+    } else {
+        vec![]
+    };
+
+    PopupView {
+        variant,
+        title: "Keyboard Shortcuts".to_string(),
+        message: None,
+        actions: vec![], // no buttons for help dialog
+        help_text: "↑/↓ Scroll · Enter/Esc Close".to_string(),
+        rect: popup_rect(size, variant, false),
+        popup_rows,
+    }
 }
 
 fn popup_variant(size: TerminalSize) -> PromptVariant {

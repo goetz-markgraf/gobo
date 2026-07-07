@@ -29,6 +29,8 @@ pub enum EditorCommand {
     MoveSelectRight,
     MoveSelectUp,
     MoveSelectDown,
+    /// Show the help dialog (keyboard shortcuts reference).
+    ShowHelp,
 }
 
 pub fn map_key_event(key: KeyEvent) -> Option<EditorCommand> {
@@ -42,6 +44,7 @@ pub fn map_key_event(key: KeyEvent) -> Option<EditorCommand> {
         (KeyModifiers::CONTROL, KeyCode::Char('c')) => Some(EditorCommand::Copy),
         (KeyModifiers::CONTROL, KeyCode::Char('x')) => Some(EditorCommand::Cut),
         (KeyModifiers::CONTROL, KeyCode::Char('v')) => Some(EditorCommand::Paste),
+        (KeyModifiers::CONTROL, KeyCode::Char('h')) => Some(EditorCommand::ShowHelp),
         (KeyModifiers::SHIFT, KeyCode::Left) => Some(EditorCommand::MoveSelectLeft),
         (KeyModifiers::SHIFT, KeyCode::Right) => Some(EditorCommand::MoveSelectRight),
         (KeyModifiers::SHIFT, KeyCode::Up) => Some(EditorCommand::MoveSelectUp),

@@ -83,3 +83,11 @@ path = "tests/integration/tab_auto_indent.rs"
 [[test]]
 name = "unit_indent"
 path = "tests/unit/indent.rs"
+
+[[test]]
+name = "unit_help_dialog"
+path = "tests/unit/help_dialog.rs"
+
+[[test]]
+name = "integration_help_dialog"
+path = "tests/integration/help_dialog.rs"

@@ -72,6 +72,8 @@ pub struct PopupView {
     pub actions: Vec<PromptActionLabel>,
     pub help_text: String,
     pub rect: PopupRect,
+    // Row data for non-action-popups (HelpDialog). Empty for other prompts.
+    pub popup_rows: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
