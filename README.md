@@ -65,3 +65,20 @@ cargo run -- <path>
 cargo test
 cargo run -- /tmp/example.txt
 ```
+
+### Git Hooks
+
+A pre-commit hook verifies that every `.rs` file under `tests/` is registered
+as a `[[test]]` target in `Cargo.toml`.  This prevents "silent failures" where
+a new test file is added but never compiled or run because it was forgotten in
+the manifest.
+
+Activate it once per clone:
+
+```bash
+git config core.hooksPath hooks
+```
+
+Files whose name contains `util` (e.g. `tests/unit/test_util_helpers.rs`) are
+exempt — they are intended as shared helper modules without their own `#[test]`
+functions and therefore don't need a test target.
