@@ -5,6 +5,7 @@
 use gobo::app::{EditingSession, PromptState, SessionMode};
 use gobo::editor::input::EditorCommand;
 use gobo::editor::render::TerminalSize;
+use gobo::editor::status::help_max_offset;
 use std::fs;
 use tempfile::tempdir;
 
@@ -124,41 +125,95 @@ fn no_document_mutation_during_help() {
 
 // -----------------------------------------------------------------------
 // S5: Arrow keys scroll the list
+//
+// Scrolling is only meaningful when the terminal is too small to show all
+// 9 rows (FR-004). At 80x10 the popup body holds 5 rows, so max_offset = 4.
+
+fn small_help_session(name: &str) -> (tempfile::TempDir, EditingSession) {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join(name);
+    fs::write(&path, "seed line\n").unwrap();
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 10)).unwrap();
+    session.handle_command(EditorCommand::ShowHelp).unwrap();
+    (dir, session)
+}
 
 #[test]
 fn arrow_keys_scroll_help_list() {
-    let (_dir, mut session) = dirty_session("scroll.txt");
-    session
-        .handle_command(EditorCommand::ShowHelp)
-        .unwrap();
+    let (_dir, mut session) = small_help_session("scroll.txt");
     assert!(matches!(
         session.pending_prompt,
         Some(PromptState::HelpDialog)
     ));
+    assert_eq!(session.help_scroll_offset, 0);
 
-    // Scroll down
-    session
-        .handle_command(EditorCommand::MoveDown)
-        .unwrap();
-    let offset = session.help_scroll_offset;
-    assert_eq!(offset, 1);
-
-    session
-        .handle_command(EditorCommand::MoveDown)
-        .unwrap();
-    assert_eq!(session.help_scroll_offset, 2);
-
-    // Scroll up
-    session
-        .handle_command(EditorCommand::MoveUp)
-        .unwrap();
+    // Scroll down reveals new rows at the bottom (FR-004 / AC-S5-1).
+    session.handle_command(EditorCommand::MoveDown).unwrap();
     assert_eq!(session.help_scroll_offset, 1);
 
-    // Boundary: back to top
-    session
-        .handle_command(EditorCommand::MoveUp)
-        .unwrap();
+    session.handle_command(EditorCommand::MoveDown).unwrap();
+    assert_eq!(session.help_scroll_offset, 2);
+
+    // Scroll up reveals previously hidden entries above (AC-S5-2).
+    session.handle_command(EditorCommand::MoveUp).unwrap();
+    assert_eq!(session.help_scroll_offset, 1);
+
+    // Boundary: back to top.
+    session.handle_command(EditorCommand::MoveUp).unwrap();
     assert_eq!(session.help_scroll_offset, 0);
+}
+
+#[test]
+fn scroll_down_clamps_at_bottom_no_dead_zone() {
+    // Pressing Down past the bottom must NOT let the offset drift past
+    // max_offset, otherwise pressing Up afterwards shows no visible change
+    // (dead scroll zone) — the original bug. Bounds come from the same helper
+    // the renderer uses, so the test stays correct if the layout changes.
+    let (_dir, mut session) = small_help_session("clamp.txt");
+    let max_off = help_max_offset(TerminalSize::new(80, 10));
+    assert!(max_off > 0, "expected a scrollable layout at 80x10");
+
+    // Walk to the bottom.
+    for _ in 0..max_off {
+        session.handle_command(EditorCommand::MoveDown).unwrap();
+    }
+    assert_eq!(session.help_scroll_offset, max_off);
+
+    // Overshoot: offset stays clamped at max_offset (AC-S5-3).
+    session.handle_command(EditorCommand::MoveDown).unwrap();
+    assert_eq!(session.help_scroll_offset, max_off);
+    session.handle_command(EditorCommand::MoveDown).unwrap();
+    assert_eq!(session.help_scroll_offset, max_off);
+
+    // No dead zone: a single Up immediately moves back up.
+    session.handle_command(EditorCommand::MoveUp).unwrap();
+    assert_eq!(session.help_scroll_offset, max_off - 1);
+}
+
+#[test]
+fn scroll_after_resize_has_no_dead_zone() {
+    // Open help on a tall terminal (all rows fit, max_offset = 0), press Down
+    // (must stay clamped), then shrink the terminal and verify scrolling works
+    // immediately without a dead zone.
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("resize.txt");
+    fs::write(&path, "seed line\n").unwrap();
+    let mut session = EditingSession::open(&path, TerminalSize::new(80, 24)).unwrap();
+    session.handle_command(EditorCommand::ShowHelp).unwrap();
+
+    // At 80x24 nothing to scroll; Down must not accumulate a stale offset.
+    for _ in 0..5 {
+        session.handle_command(EditorCommand::MoveDown).unwrap();
+    }
+    assert_eq!(session.help_scroll_offset, 0);
+
+    // Shrink to 80x10 and scroll down — first press must move.
+    session
+        .handle_command(EditorCommand::Resize(TerminalSize::new(80, 10)))
+    .unwrap();
+    assert_eq!(session.help_scroll_offset, 0);
+    session.handle_command(EditorCommand::MoveDown).unwrap();
+    assert_eq!(session.help_scroll_offset, 1);
 }
 
 #[test]

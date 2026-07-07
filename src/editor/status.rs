@@ -176,17 +176,16 @@ fn build_help_popup(size: TerminalSize, session: &EditingSession) -> PopupView {
 
     // Popup height = content rows + title/blank/footer hint (constant 4 extra rows).
     // Clamped to available space so it never overflows the terminal.
-    let desired_height: usize = (rows_len + 6).min(size.height.max(1) as usize - 1);
+    let desired_height: usize = help_desired_height(size);
 
     if size.height < 14 {
         variant = if size.height < 8 { PromptVariant::Compact } else { PromptVariant::Full };
     }
 
-    // Available body slots inside the popup (minus border/title/blank/footer).
-    let body_capacity: usize = desired_height.saturating_sub(4).max(2);
-
-    // Apply scroll offset only when content exceeds popup height.
-    let max_offset = if rows_len > body_capacity { rows_len - body_capacity } else { 0 };
+    // Available body slots + max scroll offset share one source of truth so the
+    // scroll clamping in `app.rs` can never diverge from the rendered layout.
+    let body_capacity: usize = help_body_capacity(size);
+    let max_offset: usize = help_max_offset(size);
     let offset = session.help_scroll_offset.min(max_offset);
     let end = (offset + body_capacity).min(rows_len);
 
@@ -218,6 +217,38 @@ fn popup_variant(size: TerminalSize) -> PromptVariant {
         PromptVariant::Compact
     } else {
         PromptVariant::Full
+    }
+}
+
+/// Total popup height (incl. borders) for the help dialog at a given terminal
+/// size. Shared by `build_help_popup` (rect height) and `help_body_capacity`
+/// so they can never diverge.
+pub fn help_desired_height(size: TerminalSize) -> usize {
+    let rows_len = 9usize; // always 9 key-binding rows (FR-011)
+    // rows + 6 = borders(2) + title(1) + blank(1) + blank(1) + footer(1).
+    (rows_len + 6).min(size.height.max(1) as usize - 1)
+}
+
+/// Number of key-binding rows visible inside the help popup for a given
+/// terminal size. Header (title) and footer (Enter/Esc hint) are ALWAYS
+/// visible — only the shortcut rows scroll (FR-004). Min 1 row so even on a
+/// very small terminal at least one shortcut stays visible.
+pub fn help_body_capacity(size: TerminalSize) -> usize {
+    // inner height = desired_height - 2 (top+bottom borders); reserve 4 lines
+    // for title, the two blank separators and the footer hint.
+    help_desired_height(size).saturating_sub(6).max(1)
+}
+
+/// Maximum valid scroll offset for the help dialog given a terminal size.
+/// Derived from `help_body_capacity` so clamping in `app.rs` matches the
+/// rendered popup exactly (prevents dead scroll zones after resize).
+pub fn help_max_offset(size: TerminalSize) -> usize {
+    let rows_len = 9usize;
+    let body_capacity = help_body_capacity(size);
+    if rows_len > body_capacity {
+        rows_len - body_capacity
+    } else {
+        0
     }
 }
 

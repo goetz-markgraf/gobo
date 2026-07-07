@@ -9,7 +9,7 @@ use crate::editor::indent;
 use crate::editor::input::EditorCommand;
 use crate::editor::render::{self, RenderView, TerminalSize, ViewportState};
 use crate::editor::search::SearchState;
-use crate::editor::status::StatusMessage;
+use crate::editor::status::{StatusMessage, help_max_offset};
 use crate::editor::history::History;
 use std::path::Path;
 
@@ -130,6 +130,11 @@ impl EditingSession {
         if let EditorCommand::Resize(size) = command {
             self.terminal_size = size;
             self.sync_viewport();
+            // Clamp help_scroll_offset so resize doesn't create a dead scroll zone.
+            let max_off = help_max_offset(self.terminal_size);
+            if matches!(self.pending_prompt, Some(PromptState::HelpDialog)) {
+                self.help_scroll_offset = self.help_scroll_offset.min(max_off);
+            }
             self.status = Some(StatusMessage::info(format!(
                 "Resized to {}x{}",
                 size.width, size.height
@@ -146,6 +151,9 @@ impl EditingSession {
             let preserved = (self.mode.clone(), self.pending_prompt.take());
             self.help_preserved_state = Some(preserved);
             self.pending_prompt = Some(PromptState::HelpDialog);
+            // Clamp scroll offset when first opening to avoid stale values.
+            let max_off = help_max_offset(self.terminal_size);
+            self.help_scroll_offset = self.help_scroll_offset.min(max_off);
             return Ok(());  
         }
 
@@ -432,7 +440,12 @@ impl EditingSession {
                 // Help dialog: up/down scroll, enter/escape close.
                 match command {
                     EditorCommand::MoveDown => {
-                        self.help_scroll_offset += 1;
+                        // Clamp to max_offset so the offset can never drift past
+                        // the last scrollable row — otherwise pressing Up again
+                        // after overshoot shows no visible change (dead zone).
+                        let max_off = help_max_offset(self.terminal_size);
+                        self.help_scroll_offset =
+                            (self.help_scroll_offset + 1).min(max_off);
                     }
                     EditorCommand::MoveUp => {
                         self.help_scroll_offset = self.help_scroll_offset.saturating_sub(1);

@@ -328,4 +328,51 @@ mod tests {
             "search prompt text missing, row: {search_row:?}"
         );
     }
+
+    #[test]
+    fn help_header_and_footer_always_visible_when_scrolling() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hf.txt");
+        std::fs::write(&path, "seed\n").unwrap();
+
+        // FR-004: on a small terminal header (title) + footer (Enter/Esc hint)
+        // must stay visible at every scroll position; only the shortcut rows
+        // scroll, and all 9 shortcuts must become reachable.
+        let h = 10u16;
+        let mut session =
+            EditingSession::open(&path, TerminalSize::new(80, h)).unwrap();
+        session.handle_command(EditorCommand::ShowHelp).unwrap();
+
+        let mut seen_keys: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        for step in 0..12 {
+            let view = session.render_view();
+            let rows = render_rows(&view, 80, h);
+            let joined = rows.join("\n");
+            assert!(
+                joined.contains("Keyboard Shortcuts"),
+                "header missing at scroll step {step}: {joined:?}"
+            );
+            assert!(
+                joined.contains("Enter/Esc"),
+                "footer missing at scroll step {step}: {joined:?}"
+            );
+            for line in &rows {
+                let t = line.trim();
+                if let Some(key) = t
+                    .strip_prefix("│")
+                    .and_then(|s| s.trim_start().split_whitespace().next())
+                    .filter(|k| k.starts_with("Ctrl-"))
+                {
+                    seen_keys.insert(key.to_string());
+                }
+            }
+            session.handle_command(EditorCommand::MoveDown).unwrap();
+        }
+        assert_eq!(
+            seen_keys.len(),
+            9,
+            "not all 9 shortcuts reachable by scrolling: {seen_keys:?}"
+        );
+    }
 }
