@@ -12,13 +12,35 @@ cargo run -- <path>
 
 ## Keybindings
 
-- `Arrow keys`: move cursor
-- `Ctrl-S`: save
-- `Ctrl-Q`: quit
-- `Ctrl-F`: search
-- `Enter`: confirm active prompt
-- `Esc`: cancel active prompt or search
-- `Tab` / `Shift-Tab`: move between prompt choices
+## Editing
+
+| Key | Action |
+|---|---|
+| Arrow keys | Move cursor (Plain → collapses any selection) |
+| **Shift**+Arrow keys | Move and extend selection |
+| `Backspace` / `Delete` | Delete character(s) |
+| Printable chars | Insert at cursor |
+| `Tab` (no prompt active) | Insert spaces (auto-indent aware) |
+
+## Commands
+
+| Key | Action |
+|---|---|
+| `Ctrl-S` | Save |
+| `Ctrl-Q` | Quit (prompts if dirty) |
+| `Ctrl-F` | Search (case-insensitive, query persists across modes) |
+| `Ctrl-G` | Find next match in current search query |
+| `Ctrl-Z` / `Ctrl-Y` | Undo / Redo |
+| `Ctrl-C` / `Ctrl-X` / `Ctrl-V` | Copy / Cut / Paste |
+| `Ctrl-H` | **Show help** (always available, opens keybinding reference) |
+
+## Prompts & Search
+
+| Key | Action |
+|---|---|
+| `Enter` | Confirm active prompt choice or search match |
+| `Esc` | Cancel active prompt or search |
+| `Tab` / `Shift-Tab` | Move between prompt choices |
 
 ## Behavior
 

@@ -152,12 +152,12 @@ Each file groups tests by topic with a shared helper function at the top:
 - **Indent rules isolated from mutation:** `editor/indent.rs` computes pure `IndentActionPlan`s; `app.rs` performs the actual rope/history/session mutation
 - **Render = pure projection:** `render_view()` derives `RenderView` from session snapshot – no side effects
 - **Input mapping isolated in one place:** `editor/input.rs` is the single source of truth for key bindings
-  (including Ctrl-Z → Undo, Ctrl-Y → Redo, Ctrl-C/X/V for clipboard, Shift+Arrows for selection, and a real `Tab` command for editing mode, all placed before the printable-char catch-all so the `!CONTROL` guard prevents aliasing to `InsertChar('z')` / `InsertChar('y')`)
+  (including Ctrl-H → Help dialog, Ctrl-Z → Undo, Ctrl-Y → Redo, Ctrl-C/X/V for clipboard, Shift+Arrows for selection, and a real `Tab` command for editing mode, all placed before the printable-char catch-all so the `!CONTROL` guard prevents aliasing to `InsertChar('z')` / `InsertChar('y')`)
 - **Render split across layers:** `editor/render.rs` produces a data struct (`RenderView` with `BodyLine`/`HighlightSpan`); actual widget rendering with layout constraints and `Modifier::REVERSED` highlight styling lives in `main.rs::draw()` – two separate concerns
 
 ## Commands (`EditorCommand`)
 
-25 variants. Dispatched via match on `(KeyModifiers, KeyCode)`. Unmapped keys → `None` (ignored).
+26 variants. Dispatched via match on `(KeyModifiers, KeyCode)`. Unmapped keys → `None` (ignored).
 
 | Key | Command |
 |---|---|
@@ -169,12 +169,19 @@ Each file groups tests by topic with a shared helper function at the top:
 | Ctrl-G | `FindNext` |
 | Ctrl-Z / Ctrl-Y | `Undo` / `Redo` |
 | Ctrl-C / Ctrl-X / Ctrl-V | `Copy` / `Cut` / `Paste` |
+| **Ctrl-H** | **`ShowHelp` (always available, opens help dialog) ** |
 | Enter | `Enter` (newline + auto-indent in editing mode; confirm in prompt/search) |
 | Tab | `Tab` (insert spaces in editing mode; advance popup focus when a prompt is active) |
 | Shift-Tab | `PreviousChoice` |
 | Esc | `Cancel` |
 | Backspace / Delete | `Backspace` / `Delete` |
 | Printable (no Ctrl modifier) | `InsertChar(char)` |
+
+### Command Dispatch Priority
+
+1. **ShowHelp** — always handled first, regardless of current mode
+2. **Pending prompt** — if `pending_prompt.is_some()`, dispatch to `handle_prompt_command()`
+3. **Current mode** — `Editing` / `SearchInput` / state modes (`ConfirmQuit`, `SaveConflictPrompt`, etc.)
 
 ## Search State Persistence
 
