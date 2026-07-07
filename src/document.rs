@@ -181,11 +181,16 @@ impl DocumentBuffer {
             source,
         })?;
 
-        // Rename is atomic on the same filesystem (POSIX renameat2 / mv).
-        std::fs::rename(&temp_path, &self.path).map_err(|source| DocumentError::Io {
-            path: self.path.clone(),
-            source,
-        })?;
+        // Rename is atomic on the same filesystem (POSIX renameat2 / mv). If it
+        // fails, remove the temp file so repeated save attempts don't leave
+        // orphaned `.tmp` files littering the directory.
+        if let Err(source) = std::fs::rename(&temp_path, &self.path) {
+            let _ = std::fs::remove_file(&temp_path);
+            return Err(DocumentError::Io {
+                path: self.path.clone(),
+                source,
+            });
+        }
 
         self.exists_on_disk = true;
         self.dirty = false;

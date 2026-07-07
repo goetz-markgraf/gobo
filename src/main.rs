@@ -361,7 +361,7 @@ mod tests {
                 let t = line.trim();
                 if let Some(key) = t
                     .strip_prefix("│")
-                    .and_then(|s| s.trim_start().split_whitespace().next())
+                    .and_then(|s| s.split_whitespace().next())
                     .filter(|k| k.starts_with("Ctrl-"))
                 {
                     seen_keys.insert(key.to_string());

@@ -1,0 +1,55 @@
+#!/bin/sh
+# pre-commit hook — verify every .rs file under tests/ is registered as a
+# [[test]] target in Cargo.toml.
+#
+# Rationale: Cargo only auto-discovers .rs files placed directly in tests/,
+# not those nested in subdirectories like tests/unit/ or tests/integration/.
+# A forgotten [[test]] entry means the file is silently never compiled or
+# run — a "silent failure" that green CI cannot catch.  This hook blocks
+# such commits before they enter the repository.
+#
+# Files whose name contains "util" (case-insensitive) are skipped.  These
+# are intended as shared helper modules (e.g. test-data builders) without
+# their own #[test] functions and therefore don't need a test target.
+#
+# One-time activation per clone:
+#   git config core.hooksPath hooks
+
+set -eu
+
+CARGO_TOML="Cargo.toml"
+
+# Nothing to check if there is no tests/ directory or no Cargo.toml.
+if [ ! -d tests ] || [ ! -f "$CARGO_TOML" ]; then
+    exit 0
+fi
+
+missing=0
+
+# Collect every .rs file beneath tests/ (sorted for deterministic output).
+# Filenames in this project contain no spaces, so word-splitting is safe.
+files=$(find tests -type f -name '*.rs' | sort)
+
+for file in $files; do
+    base=$(basename "$file")
+
+    # Skip util/helper modules — they hold shared test helpers, not #[test] fns.
+    if echo "$base" | grep -qi "util"; then
+        continue
+    fi
+
+    # Check whether this path appears in Cargo.toml (as a `path = "..."` entry).
+    if ! grep -qF "$file" "$CARGO_TOML"; then
+        printf 'pre-commit: ERROR — %s is not registered as a [[test]] target in Cargo.toml.\n' "$file" >&2
+        printf '  Add:\n\n    [[test]]\n    name = "<name>"\n    path = "%s"\n\n' "$file" >&2
+        missing=1
+    fi
+done
+
+if [ "$missing" -ne 0 ]; then
+    printf 'pre-commit: Commit blocked. Register the file(s) above in Cargo.toml,\n' >&2
+    printf '  or rename them to include "util" if they are helper modules.\n' >&2
+    exit 1
+fi
+
+exit 0

@@ -30,6 +30,9 @@ pub fn fits_size_limit(byte_len: usize) -> bool {
 /// `true` iff `content` is valid UTF-8 (and therefore acceptable as clipboard
 /// text). Mirrors `arboard`'s text-only selection as a testable pure predicate
 /// for the data-parsing edge cases (FR-008/FR-009, edge "non-text-inhalt").
+/// Production code relies on `arboard`'s `get_text()` returning
+/// `Err(ContentNotAvailable)` for non-text content; this predicate exists as a
+/// pure seam so the UTF-8 boundary can be unit-tested (constitution IV).
 pub fn is_text_only(content: &[u8]) -> bool {
     std::str::from_utf8(content).is_ok()
 }
