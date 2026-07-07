@@ -156,17 +156,10 @@ pub fn popup_view(session: &EditingSession, terminal_size: TerminalSize) -> Opti
 }
 
 fn build_help_popup(size: TerminalSize, session: &EditingSession) -> PopupView {
-    let variant = popup_variant(size);
     let rows = build_help_rows();
+    let mut variant = PromptVariant::Full;
 
-    // Compute body height (subtract title row + 2 border rows + footer hint row)
-    let body_height: usize = match variant {
-        PromptVariant::Full => size.height.saturating_sub(4) as usize,
-        PromptVariant::Compact => size.height.saturating_sub(3) as usize,
-    }
-    .max(2);
-
-    // Build all rows with fixed-width key column (14 chars right-padded)
+    // Build all data rows with fixed-width key column (14 chars right-padded)
     let all_rows: Vec<String> = rows
         .iter()
         .map(|r| {
@@ -179,11 +172,23 @@ fn build_help_popup(size: TerminalSize, session: &EditingSession) -> PopupView {
         })
         .collect();
 
-    // Apply scroll offset
     let rows_len = all_rows.len();
-    let max_offset = if rows_len > body_height { rows_len - body_height } else { 0 };
+
+    // Popup height = content rows + title/blank/footer hint (constant 4 extra rows).
+    // Clamped to available space so it never overflows the terminal.
+    let desired_height: usize = (rows_len + 6).min(size.height.max(1) as usize - 1);
+
+    if size.height < 14 {
+        variant = if size.height < 8 { PromptVariant::Compact } else { PromptVariant::Full };
+    }
+
+    // Available body slots inside the popup (minus border/title/blank/footer).
+    let body_capacity: usize = desired_height.saturating_sub(4).max(2);
+
+    // Apply scroll offset only when content exceeds popup height.
+    let max_offset = if rows_len > body_capacity { rows_len - body_capacity } else { 0 };
     let offset = session.help_scroll_offset.min(max_offset);
-    let end = (offset + body_height).min(rows_len);
+    let end = (offset + body_capacity).min(rows_len);
 
     let popup_rows: Vec<String> = if offset < end {
         all_rows[offset..end].to_vec()
@@ -197,10 +202,16 @@ fn build_help_popup(size: TerminalSize, session: &EditingSession) -> PopupView {
         message: None,
         actions: vec![], // no buttons for help dialog
         help_text: "↑/↓ Scroll · Enter/Esc Close".to_string(),
-        rect: popup_rect(size, variant, false),
+        rect: PopupRect {
+            x: size.width.saturating_sub(52.min(size.width)) / 2,
+            y: (size.height - desired_height as u16).saturating_sub(1) / 2,
+            width: 52.min(size.width),
+            height: desired_height as u16,
+        },
         popup_rows,
     }
 }
+
 
 fn popup_variant(size: TerminalSize) -> PromptVariant {
     if size.width < 44 || size.height < 8 {
