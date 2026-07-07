@@ -20,7 +20,7 @@ fn fits_size_limit_exactly_1mb_is_ok() {
 #[test]
 fn fits_size_limit_one_over_rejects() {
     assert!(!fits_size_limit(MAX_CLIPBOARD_BYTES + 1));
-    assert!(!fits_size_limit(1 << 20 + 1));
+    assert!(!fits_size_limit((1 << 20) + 1));
 }
 
 #[test]

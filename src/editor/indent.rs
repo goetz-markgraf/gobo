@@ -31,7 +31,7 @@ pub fn line_start_column(text: &Rope, char_index: usize) -> usize {
 }
 
 pub fn tab_width_for_column(column: usize) -> usize {
-    if column % 2 == 0 { 2 } else { 1 }
+    if column.is_multiple_of(2) { 2 } else { 1 }
 }
 
 pub fn tab_text_for_column(column: usize) -> String {
@@ -69,7 +69,7 @@ pub fn smart_backspace_width(prefix: &str) -> usize {
         return 0;
     }
 
-    if prefix.chars().count() % 2 == 0 { 2 } else { 1 }
+    if prefix.chars().count().is_multiple_of(2) { 2 } else { 1 }
 }
 
 pub fn plan_tab(text: &Rope, replace_start: usize, replace_end: usize) -> IndentActionPlan {

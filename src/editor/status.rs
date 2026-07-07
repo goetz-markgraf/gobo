@@ -245,11 +245,7 @@ pub fn help_body_capacity(size: TerminalSize) -> usize {
 pub fn help_max_offset(size: TerminalSize) -> usize {
     let rows_len = 9usize;
     let body_capacity = help_body_capacity(size);
-    if rows_len > body_capacity {
-        rows_len - body_capacity
-    } else {
-        0
-    }
+    rows_len.saturating_sub(body_capacity)
 }
 
 fn popup_rect(size: TerminalSize, variant: PromptVariant, has_message: bool) -> PopupRect {
