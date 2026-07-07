@@ -12,7 +12,7 @@
 
 ### User Story 1 - View All Keyboard Shortcuts (Priority: P1)
 
-A user opens a file in Gobo and wants to discover which keyboard shortcuts are available. They press Ctrl-H and see a centered dialog listing all shortcuts with their descriptions, grouped by category. The dialog shows exactly which keys do what — no guessing, no man-page hunting.
+A user opens a file in Gobo and wants to discover which keyboard shortcuts are available. They press Ctrl-H and see a centered dialog listing all active **Ctrl-key** shortcuts (9 entries) along with their descriptions, displayed as a flat list. The dialog shows exactly which keys do what — no guessing, no man-page hunting.
 
 **Why this priority**: Discoverability is the foundational onboarding experience for any TUI application. Without knowing short-cuts, users cannot efficiently navigate the editor. This feature directly reduces the learning curve and increases productivity.
 
@@ -71,7 +71,7 @@ In any editing mode (editing, search-input), Ctrl-H opens the Help Dialog. Once 
 
 - **FR-001**: System MUST display a Help Dialog containing all Ctrl-key shortcuts active during text editing when the user presses Ctrl-H
 - **FR-002**: The dialog MUST list every Ctrl-key combination currently active during text editing (e.g. `Ctrl-S`, `Ctrl-Q`), excluding low-level keys such as Tab, Enter, Backspace, and Delete that are handled by the terminal/OS
-- **FR-003**: The shortcut list MUST be grouped into logical categories (e.g. Navigation, Editing, Search & Find, Clipboard, Document, Undo/Redo) so users can scan by intent rather than scrolling blindly
+- **FR-003**: The dialog MUST display all active Ctrl-key combinations in a flat list format (no categories or grouping headers), each showing the key binding followed by its description, consistent with the existing shortcut table style in `architecture.md`
 - **FR-004**: The dialog MUST support vertical scrolling with up/down arrow keys (one line per keypress) when the total number of entries exceeds the visible area
 - **FR-005**: The dialog MUST close cleanly on Enter or Escape and return control to the previous session mode without altering any state (document, cursor, selection, search query, pending prompts)
 - **FR-006**: Keyboard shortcuts other than up/down arrow keys (scrolling), Enter (close), and Escape (close) while the help dialog is active MUST be silently ignored so that no underlying action executes
@@ -80,15 +80,14 @@ In any editing mode (editing, search-input), Ctrl-H opens the Help Dialog. Once 
 
 ### Key Entities
 
-- **HelpDialogEntry**: A single row consisting of `(key_description: String, label: String)` representing one keyboard shortcut and its purpose. Displayed as a formatted line inside the dialog body.
-- **HelpCategoryChunk**: A logical grouping header (e.g., "Navigation") followed by its associated `HelpDialogEntry` rows, used for visual organization in the dialog list. Typically only one category is visible at a time given the small entry count.
+- **HelpDialogRow**: A single entry — `(key: String, label: String)` — representing one Ctrl-key shortcut and its purpose in a flat list format.
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
 - **SC-001**: 100% of currently mapped **Ctrl-key** shortcuts active during text editing are visible as entries in the help content, with no omissions (verifiable by cross-referencing all `map_key_event` cases for Ctrl bindings against the dialog output)
-- **SC-002**: A user can learn every available shortcut and navigate back to editing in ≤ 5 seconds after pressing Ctrl-H (all ~10 entries visible without scrolling; Enter close = ~1 second)
+- **SC-002**: All 9 shortcut entries are immediately visible without scrolling in a standard terminal; total open-to-close cycle is ≤ 5 seconds (Enter close = ~1 second)
 - **SC-003**: Opening the Help Dialog has zero side effects on document content, cursor position, selection state, or pending prompts (verified by checking session fields before and after open/close)
 
 ## Clarifications
@@ -97,12 +96,11 @@ In any editing mode (editing, search-input), Ctrl-H opens the Help Dialog. Once 
 
 - Q: Should the help dialog support page-level scrolling or only line-by-line? → A: Line-by-line arrow keys only — minimal sufficient, no extra bindings
 - Q: What happens to other key events during help dialog open? → A: Ignored entirely (Enter/Escape close; all non-scrolling keys pass through as no-op)
-- Q: Should the help dialog include an internal search/filter input? → A: No — read-only scroll view sufficient for ~10 entries
+- Q: Should the help dialog include an internal search/filter input? → A: No — read-only scroll view sufficient for 9 entries
 - Q: What shortcut scope should the help dialog display? → A: Only Ctrl-bindings active during text editing (Ctrl-N, Ctrl-S, Ctrl-Q, etc.) — excludes Tab/Enter/Backspace/Del handled at terminal level
 
 ## Assumptions
 
 - The dialog will reuse the existing `PopupView` / `pending_prompt` mechanism established by the QuitConfirm pattern — no new widget type needed. Entries are rendered as text lines inside the popup body.
-- Categories are: Navigation, Editing, Search & Find, Clipboard, Document, Undo/Redo. Grouping the ~10 current **Ctrl**-commands into ~4–5 groups keeps the dialog compact and scannable.
 - No separate help system (man page, --help flag) is in scope — this is strictly an interactive in-dialog shortcut reference.
 - Help dialog entries are static (built once from the binding table) — not dynamically generated per-session. The list does not change based on mode context.

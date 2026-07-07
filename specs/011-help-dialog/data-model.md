@@ -1,101 +1,80 @@
 # Data Model: Help Dialog
 
-**Generated**: 2026-07-07
+**Generated**: 2026-07-07 (updated)
 
 ## Entities
 
-### HelpDialogEntry
+### HelpDialogRow
 
 A single shortcut row displayed inside the help dialog.
 
 | Field | Type | Description |
-|-------|------|-------------|
-| `key_description` | `String` | The key binding as formatted text (e.g., `"Ctrl-S"`, `"Shift+↑"`) |
+|-------|------|------------|
+| `key` | `String` | The key binding as formatted text (e.g., `"Ctrl-S"`, `"Ctrl-Q"`) |
 | `label` | `String` | Human-readable description of what the shortcut does |
 
-**Validation rules**: `key_description` must match an active Ctrl-command mapping in `src/editor/input.rs`. No empty key or label.
-
-### HelpCategoryChunk
-
-A section header followed by its associated entries.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `header` | `&'static str` | Section title (e.g., "Navigation", "Editing") |
-| `entries` | `Vec<HelpDialogEntry>` | Shortcut rows belonging to this category |
-
-**Invariant**: Every entry in the help dialog is grouped into exactly one category. Categories appear in a defined display order. No empty categories.
-
-### ScrollState
-
-Tracks viewport position within the help dialog (in-memory, session-bound).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `offset` | `usize` | Index of the topmost visible entry |
-| `max_offset` | `usize` | Maximum valid offset (total_entries - visible_lines) |
-| `visible_lines` | `usize` | How many lines fit in the dialog body after accounting for borders/title |
-
-**Validation rules**: `offset` clamped to `[0, max_offset]`. `visible_lines` ≥ 1. Scrolling by one line per arrow key press advances or decrements `offset` within bounds.
+**Validation rules**: `key` must match an active Ctrl-command mapping in `src/editor/input.rs`. No empty key or label.
 
 ### HelpDialog (aggregate)
 
 | Field | Type | Description |
-|-------|------|-------------|
-| `category_chunks` | `Vec<HelpCategoryChunk>` | All categories + entries in display order |
-| `scroll` | `ScrollState` | Current viewport position |
-| `title` | `&'static str` | Dialog title text (e.g., "Keyboard Shortcuts") |
+|-------|------|------------|
+| `rows` | `Vec<HelpDialogRow>` | All shortcut rows in a flat list, displayed top-to-bottom |
+| `title` | `&'static str` | Dialog title text — `"Keyboard Shortcuts"` |
+| `scroll_offset` | `usize` | Viewport offset for vertical scrolling (0 when content fits) |
 
-**Invariant**: `category_chunks.len()` equals total visible sections; sum of all entry lists equals total shortcuts listed; scroll respects visible_lines computed from terminal dimensions at render time.
+**Invariant**: `rows.len()` equals total active Ctrl-key bindings (currently 9). All rows are shown in the order listed in the contract.
 
-## Category Breakdown (all active bindings)
+## Flat Binding List (display order)
 
-| Category | Bindings |
-|----------|----------|
-| **Navigation** | Ctrl-F, Ctrl-G |
-| **Editing** | Tab, Shift+Tab, Enter, Backspace, Delete |
-| **Selection** | Shift+←, Shift+→, Shift+↑, Shift+↓ |
-| **Document** | Ctrl-S |
-| **Undo / Redo** | Ctrl-Z, Ctrl-Y |
-| **Clipboard** | Ctrl-C, Ctrl-X, Ctrl-V |
-| **Quit** | Ctrl-Q |
+All entries are shown as a single column — key binding on the left, description label on the right. Consistent with the table style in `architecture.md`.
 
-Total: 17 bindable commands across 7 categories.
+| # | Key | Label |
+|---|-----|-------|
+| 1 | Ctrl-F | Find in document |
+| 2 | Ctrl-G | Find next match |
+| 3 | Ctrl-S | Save document |
+| 4 | Ctrl-Z | Undo last edit |
+| 5 | Ctrl-Y | Redo last undone edit |
+| 6 | Ctrl-C | Copy selection to clipboard |
+| 7 | Ctrl-X | Cut selection to clipboard |
+| 8 | Ctrl-V | Paste from clipboard |
+| 9 | Ctrl-Q | Quit (clean) / save prompt (dirty) |
 
-## Rendered Layout (Full mode)
+Total: **9** active Ctrl-key bindings.
+
+## ScrollState
+
+Tracks viewport position within the help dialog when content exceeds visible lines.
+
+| Field | Type | Description |
+|-------|------|------------|
+| `offset` | `usize` | Index of the topmost visible row (0 = no scroll needed) |
+| `visible_lines` | `usize` | How many rows fit in the dialog body after accounting for borders/title |
+
+**Validation rules**: Content overhang triggers scroll; when lines ≥ total entries, `scroll_offset = 0`. One-line scroll per arrow key press.
+
+## Rendered Layout (Full mode, ≥ 44×8 terminal)
 
 ```
 ┌──────────────────────────────┐
 │         Keyboard             │
 │         Shortcuts            │
 ├──────────────────────────────┤
-│ Navigation                   │
-│   Ctrl-F      Find           │
-│   Ctrl-G      Find Next      │
-│ Editing                      │
-│   Tab         Insert Tab     │
-│   Shift+Tab   Tab Back       │
-│   Enter       Newline + Indent│
-│   Backspace   Delete Back    │
-│   Delete      Delete Fwd     │
-│ Selection                    │
-│   Shift+↑/↓/←/→  Extend      │
-│ Document                     │
-│   Ctrl-S      Save           │
-│ Undo / Redo                  │
-│   Ctrl-Z      Undo           │
-│   Ctrl-Y      Redo           │
-│ Clipboard                    │
-│   Ctrl-C      Copy           │
-│   Ctrl-X      Cut            │
-│   Ctrl-V      Paste          │
-│ Quit                         │
-│   Ctrl-Q      Quit           │
+│ Ctrl-F    Find in document   │
+│ Ctrl-G    Find next match    │
+│ Ctrl-S    Save document      │
+│ Ctrl-Z    Undo last edit     │
+│ Ctrl-Y    Redo last undone   │
+│ Ctrl-C    Copy selection...  │
+│ Ctrl-X    Cut selection...   │
+│ Ctrl-V    Paste from clip.   │
+│ Ctrl-Q    Quit / save prompt │
 ├──────────────────────────────┤
 │  ↑/↓ Scroll · Enter/Esc Close│
 └──────────────────────────────┘
 ```
 
-## Compact Mode (< 44×8 terminal)
+## Compact Mode (width < 44 cols **or** height < 8 rows)
 
-Title collapses to a single line; no footer shown. Same categories/entries, just more space for content.
+Title collapses to a single line ("Keyboard Shortcuts"). Footer line omitted. Rows may be truncated with ellipsis when dialog width is insufficient for even the shortest key binding.

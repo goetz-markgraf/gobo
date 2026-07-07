@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add a Help Dialog (Ctrl-H) that displays all active Ctrl-key shortcuts during text editing in a scrollable popup. Reuses the existing `PopupView`/`pending_prompt` mechanism from `ConfirmQuit`. The dialog lists keybindings grouped by category, supports line-by-line arrow-key scrolling, and closes with Enter/Escape — no state side effects.
+Add a Help Dialog (Ctrl-H) that displays all active Ctrl-key shortcuts during text editing in a scrollable popup. Reuses the existing `PopupView`/`pending_prompt` mechanism from `ConfirmQuit`. The dialog lists keybindings as a flat table, supports line-by-line arrow-key scrolling, and closes with Enter/Escape — no state side effects.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@ Add a Help Dialog (Ctrl-H) that displays all active Ctrl-key shortcuts during te
 
 **Storage**: None — purely in-memory dialog rendered via ratatui overlay.
 
-**Testing**: `cargo test` — unit tests for HelpDialogEntry/HelpCategoryChunk construction; integration test covering Ctrl-H open, arrow-key scroll, Enter/Escape close, and no-side-effect guarantee.
+**Testing**: `cargo test` — unit tests for flat list data and scroll boundary logic; integration test covering Ctrl-H open, arrow-key scroll, Enter/Escape close, and no-side-effect guarantee.
 
 **Target Platform**: Unix-like systems (macOS, Linux) where crossterm alternate screen + raw mode works.
 
@@ -26,7 +26,7 @@ Add a Help Dialog (Ctrl-H) that displays all active Ctrl-key shortcuts during te
 
 **Constraints**: Must reuse the `pending_prompt` popup mechanism exactly as ConfirmQuit does — no new widget types. Modal: no key events pass through except up/down/Enter/Escape. Terminal resize while open → re-measure and re-layout automatically via existing PopupView logic.
 
-**Scope**: ~6 shortcut categories + all currently mapped Ctrl-command bindings (~15-20 entries) across a full help dialog.
+**Scope**: flat list of all active Ctrl-command bindings (9 entries) across a full help dialog.
 
 ## Constitution Check
 
@@ -42,8 +42,8 @@ No new modules needed. No new abstractions. The help data is static and defined 
 **PASSES.** Boundaries preserved:
 - Input mapping stays in `editor/input.rs` (one binding added).
 - Dialog state lives on `EditingSession` alongside existing prompt state (`pending_prompt`).
-- All content is static — no dynamic logic, no I/O, no persistence.
-- No new dependencies; reuses `PopupView`, `ratatui::widgets::List/ScrollState`, and existing rendering infrastructure.
+- All content is static (9 rows from the flat contract list) — no dynamic logic, no I/O, no persistence.
+- No new dependencies; reuses `PopupView` and existing rendering infrastructure.
 
 ### III. Security Gate
 **PASSES.** Zero user-data, input-validation, permission, or destructive-action risks:
@@ -53,7 +53,7 @@ No new modules needed. No new abstractions. The help data is static and defined 
 
 ### IV. Verification Gate
 **PASSES (with planned tests).** Tests defined in Implementation Plan below:
-- Unit tests for `HelpDialogEntry` / `HelpCategoryChunk` data construction and scroll boundary logic.
+- Unit tests for flat list data construction and scroll boundary logic.
 - Integration test for Ctrl-H → dialog open, arrow-key scroll, Enter/Escape → close, and mode restoration.
 - Edge case test for very small terminal dimensions (compact layout).
 - Manual verification: open in 20-line terminal, verify all shortcuts visible via scrolling; open mid-search to confirm state preservation.
@@ -82,7 +82,7 @@ src/
 ├── app.rs               ← EditingSession: show_help field, PendingPrompt::HelpDialog variant
 ├── editor/
 │   ├── input.rs         ← Ctrl-H → ShowHelp binding addition
-│   └── status.rs        ← HelpDialogEntry / HelpCategoryChunk types (popup data)
+│   └── status.rs        ← Flat list row type + build_list() in existing editor module
 main.rs                    ← Draw handler: render popup when pending_prompt = Some(Prompt::HelpDialog)
 tests/
 ├── unit/
@@ -92,7 +92,7 @@ tests/
 
 ```
 
-**Structure Decision**: Minimal changes across three existing files (`app.rs`, `input.rs`, `main.rs`) plus one new data module (`status.rs`) and two new test files. No new modules — helps dialog entry types live in `editor/status.rs` alongside the existing popup/prompt infrastructure.
+**Structure Decision**: Minimal changes across three existing files (`app.rs`, `input.rs`, `main.rs`) plus one helper function (`help_view` into `editor/status.rs`) and two new test files. No new modules — help dialog row type lives alongside the existing popup/prompt infrastructure.
 
 ## Complexity Tracking
 

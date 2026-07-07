@@ -22,11 +22,11 @@
 
 **Purpose**: Define the static help data types and session state fields that every story consumes.
 
-- [ ] T002 Define `HelpDialogEntry` struct (`key_description: String`, `label: String`) in src/editor/status.rs
-- [ ] T003 [P] Define `HelpCategoryChunk` struct (`header: &'static str`, `entries: Vec<HelpDialogEntry>`) in src/editor/status.rs
-- [ ] T004 [P] Implement `HelpDialog::build()` that returns the static category list — one function with all 7 categories + 18 bindings from contracts/key-bindings.md, in src/editor/status.rs
+- [ ] T002 Define `HelpDialogRow` struct (`key: String`, `label: String`) in src/editor/status.rs
+- [ ] T003 [P] (removed — flat list model only, no category chunks needed)
+- [ ] T004 [P] Implement `HelpDialog::build_list()` that returns all 9 Ctrl-key bindings (flat list) from contracts/key-bindings.md, in src/editor/status.rs
 - [ ] T005 Add `HelpContent` variant to session state (or reuse PendingPrompt) in src/app.rs — add field for open/close flag and scroll offset
-- [ ] T006 Add `ScrollState` fields (`offset: usize`, `max_offset: usize`, `visible_lines: usize`) as part of the help dialog session data in src/editor/status.rs
+- [ ] T006 Track scrolling bounds (offset usize, max_offset usize) as inline fields on the HelpDialog session data in src/app.rs
 - [ ] T007 Build `help_view(content, rect)` in src/editor/status.rs that takes static content + TerminalRect → ratatui `Text`/`Paragraph` ready for overlay rendering
 
 **Checkpoint**: All types and constructors are defined; no user story work can begin without these being complete.
@@ -35,13 +35,13 @@
 
 ## Phase 3: US1 — View All Keyboard Shortcuts (Priority: P1) 🎯 MVP
 
-**Goal**: Pressing Ctrl-H opens a centered popup listing all active Ctrl-key shortcuts grouped by category, displayed in compact or full mode depending on terminal size.
+**Goal**: Pressing Ctrl-H opens a centered popup showing a flat table of all 9 active Ctrl-key shortcuts with descriptions.
 
 **Independent Test**: Open Gobo, press Ctrl-H, verify the Help Dialog appears centered with all shortcuts listed clearly; press Enter or Escape to close and confirm control returns to editing mode without side effects. See quickstart.md scenarios S1‑S4.
 
 ### Tests for US1 (REQUIRED) ⚠️
 
-- [ ] T008 [US1] Unit test `HelpDialog::build()` returns correct row count (18 entries, 7 categories, correct order) in tests/unit/help_dialog.rs
+- [ ] T008 [US1] Unit test `HelpDialog::build_list()` returns exactly 9 entries (contract-defined order) in tests/unit/help_dialog.rs
 - [ ] T009 [P] [US1] Integration test Ctrl-H opens HelpDialog in tests/integration/help_dialog.rs — verify dialog appears with correct title and content
 
 ### Implementation for US1
@@ -90,6 +90,10 @@
 
 - [ ] T023 [US3] Integration test search state preserved across Help Dialog in tests/integration/help_dialog.rs — enter search mode with query → open help → close → verify query and cursor restored
 - [ ] T024 [P] [US3] Integration test printable keystrokes ignored during help dialog in tests/integration/help_dialog.rs — while help is open, type chars; verify document content unchanged after closing
+
+### Tests for S8 Layered Popup (REQUIRED) ⚠️ C10 from analysis
+
+- [ ] T029 [S8] Integration test help-over-existing-prompt in tests/integration/help_dialog.rs — trigger quit/save-conflict prompt → press Ctrl-H to open help on top → verify stacked layout renders correctly → close help with Escape → verify underlying prompt state is fully preserved
 
 ### Implementation for US3
 

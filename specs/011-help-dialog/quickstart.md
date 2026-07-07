@@ -21,7 +21,7 @@
 **Steps**:
 1. Press **Ctrl-H** while in editing mode.
 2. Verify the centered dialog appears with title "Keyboard Shortcuts".
-3. Verify all shortcuts from `{@link contracts/key-bindings.md}` are listed within the dialog body, grouped by category.
+3. Verify all 9 shortcut entries from `{@link contracts/key-bindings.md}` are listed in the flat dialog body, matching the contract order.
 
 **Expected**: Dialog visible; every active binding shown without truncation (in a ≥44×8 terminal).
 
