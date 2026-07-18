@@ -138,7 +138,7 @@ create_release() {
     info "Release $tag existiert bereits – lade Archiv hoch."
     gh release upload "$tag" "$ARCHIVE" --repo "$GITHUB_REPO" --clobber
   else
-    info "Erstelle GitHub Release $tag…"
+    info "Erstelle GitHub Release ${tag}…"
     gh release create "$tag" \
       --repo "$GITHUB_REPO" \
       --title "gobo ${version}" \
@@ -163,7 +163,7 @@ update_tap() {
   local version="$1"
   local tap_dir
   tap_dir=$(mktemp -d)
-  info "Klone Tap-Repo $TAP_REPO…"
+  info "Klone Tap-Repo ${TAP_REPO}…"
   git clone --quiet "$TAP_URL" "$tap_dir"
   cd "$tap_dir"
 
