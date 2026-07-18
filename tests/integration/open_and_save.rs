@@ -79,6 +79,34 @@ fn footer_shows_relative_path_verbatim() {
     assert!(footer.contains("Ready"));
 }
 
+/// The centered Ctrl-Q/Ctrl-H hint surfaces through `render_view` on a wide
+/// terminal and is absent on a narrow one (the tempdir path is long, so a wide
+/// terminal is required to guarantee room for the hint).
+#[test]
+fn footer_hint_visible_on_wide_terminal_and_absent_when_narrow() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("hint.txt");
+    fs::write(&path, "seed\n").unwrap();
+
+    let mut session = EditingSession::open(&path, TerminalSize::new(1000, 24)).unwrap();
+    let wide = session.render_view();
+    assert!(
+        wide.footer_line.contains("Ctrl-Q: Quit, Ctrl-H: Help"),
+        "hint must appear on a wide terminal: {:?}",
+        wide.footer_line
+    );
+
+    session
+        .handle_command(EditorCommand::Resize(TerminalSize::new(30, 8)))
+        .unwrap();
+    let narrow = session.render_view();
+    assert!(
+        !narrow.footer_line.contains("Ctrl-Q"),
+        "hint must be absent on a narrow terminal: {:?}",
+        narrow.footer_line
+    );
+}
+
 #[test]
 fn startup_failures_cover_directory_and_invalid_utf8() {
     let dir = tempdir().unwrap();

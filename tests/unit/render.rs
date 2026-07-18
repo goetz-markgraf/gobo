@@ -136,6 +136,135 @@ fn non_ready_message_appears_on_right() {
     assert_eq!(UnicodeWidthStr::width(footer.as_str()), 80);
 }
 
+// ---- Centered "Ctrl-Q: Quit, Ctrl-H: Help" hint (width-dependent) ----
+//
+// When the terminal is wide enough, a centered hint is shown BETWEEN the
+// filename (left) and the status message (right). Design rules pinned by the
+// tests below:
+//   * hint text  = `Ctrl-Q: Quit, Ctrl-H: Help`  (visual width = 26)
+//   * centering  = full terminal width: hint_start == (width - 26) / 2
+//   * fits IFF   hint_start >= name_width + 1
+//                 AND hint_start + 26 + 1 <= width - msg_width
+//                 (at least one space of separation on each side)
+//   * drop order = the hint is dropped FIRST (no replacement); LEFT (name)
+//                  and RIGHT (message) keep today's two-region layout.
+
+/// On a wide terminal the hint appears centered between filename and message.
+#[test]
+fn wide_terminal_shows_centered_hint_between_name_and_message() {
+    use unicode_width::UnicodeWidthStr;
+    let footer = format_footer_line("foo.txt", false, "Ready", 80);
+    assert!(
+        footer.contains("Ctrl-Q: Quit, Ctrl-H: Help"),
+        "centered hint missing: {footer:?}"
+    );
+    assert!(
+        footer.starts_with("foo.txt"),
+        "filename must still lead on the left: {footer:?}"
+    );
+    assert!(
+        footer.ends_with("Ready"),
+        "status message must still end the row on the right: {footer:?}"
+    );
+    assert_eq!(
+        UnicodeWidthStr::width(footer.as_str()),
+        80,
+        "footer must fill the terminal width exactly: {footer:?}"
+    );
+    // Hint is centered in the full width: (80 - 26) / 2 == 27.
+    assert_eq!(
+        footer.find("Ctrl-Q: Quit, Ctrl-H: Help"),
+        Some(27),
+        "hint must be centered in the full terminal width: {footer:?}"
+    );
+}
+
+/// Pin the exact 80-col clean layout: name | pad | hint | pad | message.
+#[test]
+fn wide_footer_exact_layout_name_hint_message() {
+    let expected = format!(
+        "{}{}{}{}{}",
+        "foo.txt",
+        " ".repeat(20),
+        "Ctrl-Q: Quit, Ctrl-H: Help",
+        " ".repeat(22),
+        "Ready"
+    );
+    let footer = format_footer_line("foo.txt", false, "Ready", 80);
+    assert_eq!(footer, expected);
+}
+
+/// The dirty marker stays glued to the filename on the left; the hint still fits.
+#[test]
+fn wide_terminal_shows_hint_alongside_dirty_marker() {
+    use unicode_width::UnicodeWidthStr;
+    let footer = format_footer_line("foo.txt", true, "Ready", 80);
+    assert!(
+        footer.starts_with("foo.txt (*)"),
+        "dirty marker must stay glued to the filename: {footer:?}"
+    );
+    assert!(footer.contains("Ctrl-Q: Quit, Ctrl-H: Help"));
+    assert!(footer.ends_with("Ready"));
+    assert_eq!(UnicodeWidthStr::width(footer.as_str()), 80);
+}
+
+/// Centering tracks the terminal width: a 100-col terminal centers the hint at col 37.
+#[test]
+fn hint_center_position_tracks_terminal_width() {
+    let footer = format_footer_line("foo.txt", false, "Ready", 100);
+    assert_eq!(footer.find("Ctrl-Q: Quit, Ctrl-H: Help"), Some(37));
+}
+
+/// Boundary: the smallest width where the hint still fits for this name/message.
+/// "foo.txt" (7) + 1 gap + hint (26) + 1 gap + "Ready" (5) needs >= 42 cols;
+/// at width 42 the hint starts at col (42 - 26) / 2 == 8.
+#[test]
+fn hint_just_fits_at_width_boundary() {
+    let footer = format_footer_line("foo.txt", false, "Ready", 42);
+    assert!(
+        footer.contains("Ctrl-Q: Quit, Ctrl-H: Help"),
+        "hint should still fit at width 42: {footer:?}"
+    );
+    assert_eq!(footer.find("Ctrl-Q: Quit, Ctrl-H: Help"), Some(8));
+}
+
+/// One column below the boundary the hint is dropped, leaving name | message.
+#[test]
+fn hint_dropped_one_column_below_boundary() {
+    let footer = format_footer_line("foo.txt", false, "Ready", 41);
+    assert!(
+        !footer.contains("Ctrl-Q"),
+        "hint should be dropped at width 41: {footer:?}"
+    );
+    assert!(footer.starts_with("foo.txt"));
+    assert!(footer.ends_with("Ready"));
+}
+
+/// On a narrow terminal the hint is dropped; today's two-region layout remains.
+#[test]
+fn narrow_terminal_drops_hint_keeps_name_and_message() {
+    let footer = format_footer_line("foo.txt", false, "Ready", 40);
+    assert!(!footer.contains("Ctrl-Q"));
+    assert!(footer.starts_with("foo.txt"));
+    assert!(footer.ends_with("Ready"));
+}
+
+/// Even on a wide-ish terminal, a long message colliding with the centered
+/// hint causes the hint to be dropped (the message stays on the right).
+#[test]
+fn long_message_colliding_with_hint_drops_hint() {
+    use unicode_width::UnicodeWidthStr;
+    let msg = "x".repeat(20);
+    let footer = format_footer_line("a.txt", false, &msg, 50);
+    assert!(
+        !footer.contains("Ctrl-Q"),
+        "hint should be dropped when the message collides with it: {footer:?}"
+    );
+    assert!(footer.starts_with("a.txt"));
+    assert!(footer.ends_with(&msg));
+    assert_eq!(UnicodeWidthStr::width(footer.as_str()), 50);
+}
+
 // ---- Selection highlight projection (spec 007 T013) ----
 
 use gobo::app::EditingSession;
