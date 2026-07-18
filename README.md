@@ -2,6 +2,23 @@
 
 `gobo` is a lightweight shell text editor for one UTF-8 document per session.
 
+## Installation
+
+On macOS (Apple Silicon) install via Homebrew:
+
+```bash
+brew install goetz-markgraf/tap/gobo
+```
+
+This pulls the prebuilt binary from the [GitHub release](https://github.com/goetz-markgraf/gobo/releases) and makes `gobo` available in your `PATH`. Later updates:
+
+```bash
+brew upgrade gobo
+```
+
+> Note: the fully qualified name `goetz-markgraf/tap/gobo` is required because a
+> different `gobo` (Gobo Eiffel) already exists in the default Homebrew tap.
+
 ## Usage
 
 ```bash
