@@ -105,12 +105,19 @@ pub struct HighlightSpan {
 }
 
 /// Format the single footer row: the filename (CLI path) plus optional
-/// ` (*)` dirty marker on the LEFT, and the status `message` on the RIGHT,
-/// padded to `terminal_width` columns so the two sit at the opposite ends of
-/// the row. If the filename is too long it is truncated from the left with a
-/// `...` prefix; the message (which is less critical) is dropped first when
-/// space is tight. Spec 005 FR-001 / FR-003 (revision 2026-07-02).
+/// ` (*)` dirty marker on the LEFT, the status `message` on the RIGHT,
+/// and — when the terminal is wide enough — a centered `Ctrl-Q: Quit,
+/// Ctrl-H: Help` hint BETWEEN the two. The hint is centered over the full
+/// terminal width and is shown only when at least one space of separation
+/// remains on both sides; otherwise it is dropped (no replacement) and the
+/// two-region layout (name | message) from spec 005 applies. If the filename
+/// is too long it is truncated from the left with a `...` prefix; the message
+/// (which is less critical) is dropped first when space is tight.
+/// Spec 005 FR-001 / FR-003 (revision 2026-07-02).
 pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width: u16) -> String {
+    const FOOTER_HINT: &str = "Ctrl-Q: Quit, Ctrl-H: Help";
+    let hint_width = UnicodeWidthStr::width(FOOTER_HINT);
+
     let name = if dirty {
         format!("{} (*)", path)
     } else {
@@ -125,6 +132,28 @@ pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width
     }
 
     let msg_width = UnicodeWidthStr::width(message);
+
+    // Centered hint: placed at (width - hint_width) / 2 over the full width, and
+    // shown only when at least one space of separation remains on both sides.
+    // When it does not fit it is dropped entirely (no replacement); the
+    // two-region layout below takes over.
+    let hint_start = width.saturating_sub(hint_width) / 2;
+    let hint_fits = hint_width <= width
+        && hint_start > name_width
+        && hint_start + hint_width < width.saturating_sub(msg_width);
+    if hint_fits {
+        let left_pad = hint_start - name_width;
+        let right_pad = width - msg_width - (hint_start + hint_width);
+        return format!(
+            "{}{}{}{}{}",
+            name,
+            " ".repeat(left_pad),
+            FOOTER_HINT,
+            " ".repeat(right_pad),
+            message
+        );
+    }
+
     let gap_width = width.saturating_sub(name_width);
     // Need at least one space of separation between name and message.
     if msg_width < gap_width {
