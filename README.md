@@ -22,6 +22,12 @@ brew upgrade gobo
 ## Usage
 
 ```bash
+gobo <path>
+```
+
+For development:
+
+```bash
 cargo run -- <path>
 # or
 ./target/debug/gobo <path>
