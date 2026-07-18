@@ -162,12 +162,10 @@ pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width
         return format!("{}{}{}", name, " ".repeat(pad), message);
     }
 
-    // Message won't fit beside the name: drop it and show only the name, padded
-    // right with spaces to fill the row. If even the name overflows, truncate.
-    if name_width <= width {
-        return format!("{}{}", name, " ".repeat(gap_width));
-    }
-    truncate_name(&name, terminal_width, dirty)
+    // Message won't fit beside the name: drop it and show only the name,
+    // right-padded with spaces to fill the row. (The name already fits — the
+    // `name_width >= width` case returned at the top of this function.)
+    format!("{}{}", name, " ".repeat(gap_width))
 }
 
 /// Truncate `name` (a path plus optional ` (*)` suffix) to `terminal_width`
