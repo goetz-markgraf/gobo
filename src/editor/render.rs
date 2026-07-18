@@ -138,12 +138,13 @@ pub fn format_footer_line(path: &str, dirty: bool, message: &str, terminal_width
     // When it does not fit it is dropped entirely (no replacement); the
     // two-region layout below takes over.
     let hint_start = width.saturating_sub(hint_width) / 2;
+    let hint_end = hint_start + hint_width;
     let hint_fits = hint_width <= width
         && hint_start > name_width
-        && hint_start + hint_width < width.saturating_sub(msg_width);
+        && hint_end < width.saturating_sub(msg_width);
     if hint_fits {
         let left_pad = hint_start - name_width;
-        let right_pad = width - msg_width - (hint_start + hint_width);
+        let right_pad = width - msg_width - hint_end;
         return format!(
             "{}{}{}{}{}",
             name,
